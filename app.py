@@ -17,7 +17,7 @@ app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-key-change-in-production
 csrf = CSRFProtect(app)
 
 # Ollama API base URL
-OLLAMA_API_BASE = os.getenv('OLLAMA_API_BASE', 'http://192.168.0.17:11434')
+OLLAMA_API_BASE = os.getenv('OLLAMA_API_BASE', 'http://127.0.0.1:11434')
 OLLAMA_API_URL = f"{OLLAMA_API_BASE}/api"
 
 # App configuration
