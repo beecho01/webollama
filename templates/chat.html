@@ -5,29 +5,21 @@
 {% block extra_css %}
 <style>
     .chat-container {
-        height: calc(100vh - 200px);
+        height: calc(100vh - 250px);
         display: flex;
         flex-direction: column;
     }
-    .chat-messages {
-        flex: 1;
-        overflow-y: auto;
-        padding: 15px;
-        border: 1px solid #dee2e6;
-        border-radius: 0.25rem;
-        background-color: #f8f9fa;
-        margin-bottom: 15px;
-    }
+
     .chat-input {
         display: flex;
     }
     .chat-input textarea {
         flex: 1;
         resize: none;
-        border-radius: 0.25rem 0 0 0.25rem;
+        border-radius: 0.375rem 0 0 0.375rem;
     }
     .chat-input button {
-        border-radius: 0 0.25rem 0.25rem 0;
+        border-radius: 0 0.375rem 0.375rem 0;
     }
     .message {
         margin-bottom: 15px;
@@ -36,22 +28,32 @@
     }
     .message-user {
         float: right;
-        background-color: #d1ecf1;
+        background-color: #dbeafe;
         border-radius: 15px 15px 0 15px;
+    }
+    .dark .message-user {
+        background-color: #1e3a5f;
     }
     .message-assistant {
         float: left;
-        background-color: #fff;
-        border: 1px solid #dee2e6;
+        background-color: #ffffff;
+        border: 1px solid #e5e7eb;
         border-radius: 15px 15px 15px 0;
+    }
+    .dark .message-assistant {
+        background-color: #1f2937;
+        border-color: #374151;
     }
     .message-content {
         padding: 10px 15px;
     }
     .message-role {
         font-size: 0.8rem;
-        color: #6c757d;
+        color: #6b7280;
         margin-bottom: 5px;
+    }
+    .dark .message-role {
+        color: #9ca3af;
     }
     .message p:last-child {
         margin-bottom: 0;
@@ -62,8 +64,12 @@
         height: 20px;
         border: 3px solid rgba(0, 0, 0, 0.1);
         border-radius: 50%;
-        border-top-color: #007bff;
+        border-top-color: #374151;
         animation: spin 1s ease-in-out infinite;
+    }
+    .dark .loader {
+        border-color: rgba(255, 255, 255, 0.15);
+        border-top-color: #d1d5db;
     }
     @keyframes spin {
         to { transform: rotate(360deg); }
@@ -75,10 +81,13 @@
         display: inline-block;
         width: 8px;
         height: 16px;
-        background-color: #007bff;
+        background-color: #374151;
         margin-left: 2px;
         vertical-align: middle;
         animation: blink 1s step-end infinite;
+    }
+    .dark .cursor {
+        background-color: #d1d5db;
     }
     @keyframes blink {
         0%, 100% { opacity: 1; }
@@ -88,46 +97,39 @@
 {% endblock %}
 
 {% block content %}
-<div class="container">
-    <div class="row mb-3">
-        <div class="col-12">
-            <h1>Chat with Ollama</h1>
-        </div>
+<div class="max-w-6xl mx-auto">
+    <div class="mb-6">
+        <h1 class="text-2xl sm:text-3xl text-neutral-900 tracking-tight dark:text-neutral-200 [overflow-wrap:anywhere] break-all font-semibold">Chat with Ollama</h1>
     </div>
 
-    <div class="row">
-        <div class="col-12 col-md-3 mb-3">
-            <div class="card">
-                <div class="card-body">
-                    <h5 class="card-title">Model Selection</h5>
-                    <div class="mb-3">
-                        <label for="model-select" class="form-label">Choose a model</label>
-                        <select class="form-select" id="model-select">
-                            <option value="" disabled selected>Select a model</option>
-                            {% for model in models %}
-                            <option value="{{ model.name }}" {% if request.args.get('model') == model.name %}selected{% endif %}>{{ model.name }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    
-                    <div class="d-grid gap-2">
-                        <button class="btn btn-secondary" id="clear-chat">
-                            <i class="fas fa-broom me-2"></i> Clear Chat
-                        </button>
-                    </div>
+    <div class="flex flex-col md:flex-row gap-4">
+        <div class="w-full md:w-64 shrink-0">
+            <div class="rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950 shadow-sm p-5">
+                <h5 class="text-base font-semibold text-neutral-900 dark:text-white mb-4">Model Selection</h5>
+                <div class="mb-4">
+                    <label for="model-select" class="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">Choose a model</label>
+                    <select class="w-full rounded-md border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-neutral-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-400" id="model-select">
+                        <option value="" disabled selected>Select a model</option>
+                        {% for model in models %}
+                        <option value="{{ model.name }}" {% if request.args.get('model') == model.name %}selected{% endif %}>{{ model.name }}</option>
+                        {% endfor %}
+                    </select>
                 </div>
+                <button class="w-full inline-flex items-center justify-center px-4 py-2 text-sm font-medium rounded-md bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-colors" id="clear-chat">
+                    <i class="fas fa-broom mr-2"></i> Clear Chat
+                </button>
             </div>
         </div>
 
-        <div class="col-12 col-md-9">
+        <div class="flex-1 min-w-0">
             <div class="chat-container">
-                <div class="chat-messages" id="chat-messages">
+                <div class="flex flex-1 rounded-2xl p-4 mb-4 overflow-y-auto bg-gray-50 dark:bg-white/5 border border-gray-950/10 dark:border-white/10" id="chat-messages">
                     <!-- Messages will be added here -->
                 </div>
-                
+
                 <div class="chat-input">
-                    <textarea class="form-control" id="message-input" rows="2" placeholder="Type your message here..." disabled></textarea>
-                    <button class="btn btn-primary" id="send-button" disabled>
+                    <textarea class="w-full rounded-l-md border border-r-0 border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-neutral-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-400" id="message-input" rows="2" placeholder="Type your message here..." disabled></textarea>
+                    <button class="inline-flex items-center justify-center px-4 py-2 text-sm font-medium rounded-r-md bg-black dark:bg-white text-white dark:text-black hover:bg-neutral-800 dark:hover:bg-neutral-100 transition-colors border border-black dark:border-white shrink-0" id="send-button" disabled>
                         <i class="fas fa-paper-plane"></i>
                     </button>
                 </div>
@@ -146,34 +148,34 @@
         const messageInput = document.getElementById('message-input');
         const sendButton = document.getElementById('send-button');
         const clearChatButton = document.getElementById('clear-chat');
-        
+
         let conversation = [];
         let isProcessing = false;
-        
+
         // Enable input when model is selected
         modelSelect.addEventListener('change', function() {
             const isModelSelected = !!this.value;
             messageInput.disabled = !isModelSelected;
             sendButton.disabled = !isModelSelected;
-            
+
             if (isModelSelected) {
                 messageInput.focus();
             }
-            
+
             // Clear chat when changing models
             chatMessages.innerHTML = '';
             conversation = [];
         });
-        
+
         // Initialize if model is preselected from URL
         if (modelSelect.value) {
             messageInput.disabled = false;
             sendButton.disabled = false;
         }
-        
+
         // Send message when clicking send button
         sendButton.addEventListener('click', sendMessage);
-        
+
         // Send message when pressing Enter (but not with Shift+Enter)
         messageInput.addEventListener('keydown', function(e) {
             if (e.key === 'Enter' && !e.shiftKey) {
@@ -181,35 +183,35 @@
                 sendMessage();
             }
         });
-        
+
         // Clear chat
         clearChatButton.addEventListener('click', function() {
             chatMessages.innerHTML = '';
             conversation = [];
         });
-        
+
         function sendMessage() {
             if (isProcessing) return;
-            
+
             const message = messageInput.value.trim();
             const model = modelSelect.value;
-            
+
             if (!message || !model) return;
-            
+
             // Add user message to UI
             addMessage('user', message);
-            
+
             // Clear input
             messageInput.value = '';
-            
+
             isProcessing = true;
             messageInput.disabled = true;
             sendButton.disabled = true;
-            
+
             // Reference to the message element for streaming
             let assistantMessageEl = null;
             let assistantMessageContent = '';
-            
+
             // Create and add the assistant message container
             assistantMessageEl = document.createElement('div');
             assistantMessageEl.className = 'message message-assistant';
@@ -221,9 +223,12 @@
             `;
             chatMessages.appendChild(assistantMessageEl);
             chatMessages.scrollTop = chatMessages.scrollHeight;
-            
+
+            // Get streaming content container
+            const streamingContentEl = assistantMessageEl.querySelector('.streaming-content');
+
             // Use fetch to send the data and handle the stream response
-            const response = fetch('/api/chat', {
+            fetch('/api/chat', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -239,23 +244,22 @@
             .then(response => {
                 const reader = response.body.getReader();
                 const decoder = new TextDecoder();
-                
+
                 function processStream() {
                     return reader.read().then(({ done, value }) => {
                         if (done) {
                             return;
                         }
-                        
+
                         const chunk = decoder.decode(value, { stream: true });
                         const lines = chunk.split('\n\n');
-                        
+
                         for (let line of lines) {
                             if (line.startsWith('data: ')) {
                                 try {
                                     const data = JSON.parse(line.substring(6));
-                                    
+
                                     if (data.error) {
-                                        // Handle error
                                         if (assistantMessageEl && assistantMessageEl.parentNode) {
                                             chatMessages.removeChild(assistantMessageEl);
                                         }
@@ -263,29 +267,22 @@
                                         resetUI();
                                         return;
                                     }
-                                    
+
                                     if (data.delta) {
-                                        // Update the streaming content
                                         assistantMessageContent += data.delta;
                                         streamingContentEl.innerHTML = marked.parse(assistantMessageContent) + '<div class="cursor"></div>';
                                         chatMessages.scrollTop = chatMessages.scrollHeight;
                                     }
-                                    
+
                                     if (data.done) {
-                                        // Streaming is complete
-                                        
-                                        // Replace the streaming content with the final parsed markdown
                                         assistantMessageEl.innerHTML = `
                                             <div class="message-content">
                                                 <div class="message-role">Assistant</div>
                                                 ${marked.parse(assistantMessageContent)}
                                             </div>
                                         `;
-                                        
-                                        // Update conversation
+
                                         conversation = data.conversation;
-                                        
-                                        // Reset UI
                                         resetUI();
                                         return;
                                     }
@@ -294,11 +291,11 @@
                                 }
                             }
                         }
-                        
+
                         return processStream();
                     });
                 }
-                
+
                 return processStream();
             })
             .catch(error => {
@@ -308,10 +305,7 @@
                 addErrorMessage('Error with streaming response: ' + error.message);
                 resetUI();
             });
-            
-            // Get streaming content container
-            const streamingContentEl = assistantMessageEl.querySelector('.streaming-content');
-            
+
             function resetUI() {
                 isProcessing = false;
                 messageInput.disabled = false;
@@ -319,35 +313,34 @@
                 messageInput.focus();
             }
         }
-        
+
         function addMessage(role, content) {
             const messageEl = document.createElement('div');
             messageEl.className = `message message-${role}`;
-            
-            // Parse markdown in assistant messages
+
             if (role === 'assistant') {
                 content = marked.parse(content);
             }
-            
+
             messageEl.innerHTML = `
                 <div class="message-content">
                     <div class="message-role">${role === 'user' ? 'You' : 'Assistant'}</div>
                     ${role === 'assistant' ? content : `<p>${escapeHtml(content)}</p>`}
                 </div>
             `;
-            
+
             chatMessages.appendChild(messageEl);
             chatMessages.scrollTop = chatMessages.scrollHeight;
         }
-        
+
         function addErrorMessage(error) {
             const messageEl = document.createElement('div');
-            messageEl.className = 'alert alert-danger mt-3';
-            messageEl.innerHTML = `<i class="fas fa-exclamation-circle me-2"></i> ${error}`;
+            messageEl.className = 'flex items-start gap-2 px-4 py-3 rounded-md border text-sm bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-800 text-red-800 dark:text-red-300 mt-3';
+            messageEl.innerHTML = `<i class="fas fa-exclamation-circle mt-0.5 shrink-0"></i><span>${error}</span>`;
             chatMessages.appendChild(messageEl);
             chatMessages.scrollTop = chatMessages.scrollHeight;
         }
-        
+
         function escapeHtml(unsafe) {
             return unsafe
                 .replace(/&/g, "&amp;")

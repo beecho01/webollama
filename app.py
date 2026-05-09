@@ -2,6 +2,9 @@ from flask import Flask, render_template, request, jsonify, redirect, url_for, f
 import requests
 import json
 import os
+import threading
+import uuid
+from datetime import datetime
 from dotenv import load_dotenv
 import base64
 from flask_wtf.csrf import CSRFProtect
@@ -14,12 +17,54 @@ app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-key-change-in-production
 csrf = CSRFProtect(app)
 
 # Ollama API base URL
-OLLAMA_API_BASE = os.getenv('OLLAMA_API_BASE', 'http://127.0.0.1:11434')
+OLLAMA_API_BASE = os.getenv('OLLAMA_API_BASE', 'http://192.168.0.17:11434')
 OLLAMA_API_URL = f"{OLLAMA_API_BASE}/api"
 
 # App configuration
 PORT = int(os.getenv('PORT', 5000))
 HOST = os.getenv('HOST', '127.0.0.1')
+
+# Background pull job tracking
+_pull_jobs = {}
+_pull_jobs_lock = threading.Lock()
+
+
+def _pull_worker(job_id, model_name):
+    try:
+        with requests.post(
+            f"{OLLAMA_API_URL}/pull",
+            json={"model": model_name, "stream": True},
+            stream=True,
+            timeout=3600
+        ) as r:
+            for line in r.iter_lines():
+                with _pull_jobs_lock:
+                    if _pull_jobs.get(job_id, {}).get('cancelled'):
+                        break
+                if not line:
+                    continue
+                try:
+                    data = json.loads(line)
+                except ValueError:
+                    continue
+                with _pull_jobs_lock:
+                    j = _pull_jobs.get(job_id)
+                    if j is None:
+                        break
+                    if data.get('status'):
+                        j['status'] = data['status']
+                    if data.get('digest') and data.get('total'):
+                        j['totals'][data['digest']] = data['total']
+                        j['completed'][data['digest']] = data.get('completed', 0)
+                    if data.get('status') == 'success':
+                        j['done'] = True
+                        j['success'] = True
+    except Exception as e:
+        with _pull_jobs_lock:
+            j = _pull_jobs.get(job_id)
+            if j:
+                j['done'] = True
+                j['error'] = str(e)
 
 @app.route('/')
 def index():
@@ -146,6 +191,59 @@ def pull_model():
             flash(f"Error connecting to Ollama API: {str(e)}", "danger")
             return redirect(url_for('pull_model'))
     return render_template('pull_model.html')
+
+@app.route('/pull/start', methods=['POST'])
+def pull_start():
+    model_name = request.form.get('model_name', '').strip()
+    if not model_name:
+        return jsonify({'error': 'Model name required'}), 400
+
+    # Prune completed jobs older than 1 hour
+    with _pull_jobs_lock:
+        cutoff = datetime.utcnow().timestamp() - 3600
+        stale = [k for k, v in _pull_jobs.items() if v.get('done') and v.get('ts', 0) < cutoff]
+        for k in stale:
+            del _pull_jobs[k]
+
+        job_id = str(uuid.uuid4())
+        _pull_jobs[job_id] = {
+            'model': model_name,
+            'status': 'Starting…',
+            'totals': {},
+            'completed': {},
+            'done': False,
+            'success': False,
+            'error': None,
+            'cancelled': False,
+            'ts': datetime.utcnow().timestamp(),
+        }
+
+    t = threading.Thread(target=_pull_worker, args=(job_id, model_name), daemon=True)
+    t.start()
+    return jsonify({'job_id': job_id, 'model': model_name})
+
+
+@app.route('/pull/progress/<job_id>')
+@csrf.exempt
+def pull_progress(job_id):
+    with _pull_jobs_lock:
+        j = _pull_jobs.get(job_id)
+        if j is None:
+            return jsonify({'error': 'not_found'}), 404
+        snapshot = dict(j)
+        snapshot['totals'] = dict(j['totals'])
+        snapshot['completed'] = dict(j['completed'])
+    return jsonify(snapshot)
+
+
+@app.route('/pull/cancel/<job_id>', methods=['POST'])
+@csrf.exempt
+def pull_cancel(job_id):
+    with _pull_jobs_lock:
+        j = _pull_jobs.get(job_id)
+        if j:
+            j['cancelled'] = True
+    return jsonify({'ok': True})
 
 @app.route('/create', methods=['GET'])
 def create_model_page():
