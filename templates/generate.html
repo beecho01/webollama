@@ -4,11 +4,9 @@
 
 {% block extra_css %}
 <style>
-    .modal { position: fixed; inset: 0; z-index: 1050; display: none; overflow-y: auto; }
-    .modal.show { display: block; background: rgba(0,0,0,0.5); }
-    .modal-dialog { display: flex; align-items: center; justify-content: center; min-height: 100%; padding: 1rem; pointer-events: none; }
-    .modal-content { pointer-events: all; width: 100%; max-width: 500px; }
-    .modal-lg .modal-content { max-width: 800px; }
+    #savePresetModal, #paramVisualizationModal { border: none; padding: 0; color: inherit; }
+    #savePresetModal { width: 100%; max-width: 500px; }
+    #paramVisualizationModal { width: 100%; max-width: 800px; }
     .result-container {
         min-height: 200px;
         max-height: 500px;
@@ -18,77 +16,74 @@
 </style>
 {% endblock %}
 
-{% block content %}
+{% block modals %}
 <!-- Save Preset Modal -->
-<div class="modal fade" id="savePresetModal" tabindex="-1" aria-labelledby="savePresetModalLabel" aria-hidden="true" data-backdrop="false">
-    <div class="modal-dialog">
-        <div class="modal-content rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-950 shadow-xl">
-            <div class="flex items-center justify-between px-6 py-4 border-b border-neutral-200 dark:border-neutral-800">
-                <h5 class="text-base font-semibold text-neutral-900 dark:text-white" id="savePresetModalLabel">
-                    <i class="fas fa-save mr-2"></i>Save Parameter Preset
-                </h5>
-                <button type="button" class="text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200" data-bs-dismiss="modal" aria-label="Close">
-                    <i class="fas fa-times"></i>
-                </button>
+<dialog id="savePresetModal">
+    <div class="rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-950 shadow-xl">
+        <div class="flex items-center justify-between px-6 py-4 border-b border-neutral-200 dark:border-neutral-800">
+            <h5 class="text-base font-semibold text-neutral-900 dark:text-white" id="savePresetModalLabel">
+                <i class="fas fa-save mr-2"></i>Save Parameter Preset
+            </h5>
+            <button type="button" class="text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200" onclick="this.closest('dialog').close()" aria-label="Close">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="p-6">
+            <div class="mb-4">
+                <label for="preset-name" class="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">Preset Name</label>
+                <input type="text" class="w-full rounded-md border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-neutral-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-400" id="preset-name" placeholder="My Custom Preset">
             </div>
-            <div class="p-6">
-                <div class="mb-4">
-                    <label for="preset-name" class="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">Preset Name</label>
-                    <input type="text" class="w-full rounded-md border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-neutral-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-400" id="preset-name" placeholder="My Custom Preset">
-                </div>
-                <div class="mb-4">
-                    <label for="preset-description" class="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">Description (Optional)</label>
-                    <textarea class="w-full rounded-md border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-neutral-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-400" id="preset-description" rows="2" placeholder="What is this preset good for?"></textarea>
-                </div>
+            <div class="mb-4">
+                <label for="preset-description" class="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">Description (Optional)</label>
+                <textarea class="w-full rounded-md border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-neutral-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-400" id="preset-description" rows="2" placeholder="What is this preset good for?"></textarea>
+            </div>
 
-                <div class="flex items-start gap-2 px-4 py-3 rounded-md border text-sm bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800 text-blue-800 dark:text-blue-300 mb-4">
-                    <i class="fas fa-info-circle mt-0.5 shrink-0"></i>
-                    <span>This preset will be saved in your browser's local storage.</span>
-                </div>
+            <div class="flex items-start gap-2 px-4 py-3 rounded-md border text-sm bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800 text-blue-800 dark:text-blue-300 mb-4">
+                <i class="fas fa-info-circle mt-0.5 shrink-0"></i>
+                <span>This preset will be saved in your browser's local storage.</span>
+            </div>
 
-                <h6 class="text-sm font-semibold text-neutral-900 dark:text-white mb-2">Current Parameters</h6>
-                <table class="w-full text-sm">
-                    <tbody class="divide-y divide-neutral-100 dark:divide-neutral-800">
-                        <tr>
-                            <td class="py-1.5 text-neutral-600 dark:text-neutral-400">Temperature</td>
-                            <td class="py-1.5 text-neutral-900 dark:text-neutral-100"><span id="modal-temperature-value">0.7</span></td>
-                        </tr>
-                        <tr>
-                            <td class="py-1.5 text-neutral-600 dark:text-neutral-400">Top P</td>
-                            <td class="py-1.5 text-neutral-900 dark:text-neutral-100"><span id="modal-top-p-value">0.9</span></td>
-                        </tr>
-                        <tr>
-                            <td class="py-1.5 text-neutral-600 dark:text-neutral-400">Top K</td>
-                            <td class="py-1.5 text-neutral-900 dark:text-neutral-100"><span id="modal-top-k-value">40</span></td>
-                        </tr>
-                        <tr>
-                            <td class="py-1.5 text-neutral-600 dark:text-neutral-400">Max Tokens</td>
-                            <td class="py-1.5 text-neutral-900 dark:text-neutral-100"><span id="modal-max-tokens-value">Default</span></td>
-                        </tr>
-                        <tr>
-                            <td class="py-1.5 text-neutral-600 dark:text-neutral-400">Context Size</td>
-                            <td class="py-1.5 text-neutral-900 dark:text-neutral-100"><span id="modal-context-size-value">Default</span></td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-            <div class="flex justify-end gap-2 px-6 py-4 border-t border-neutral-200 dark:border-neutral-800">
-                <button type="button" class="inline-flex items-center px-4 py-2 text-sm font-medium rounded-md bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-colors" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="inline-flex items-center px-4 py-2 text-sm font-medium rounded-md bg-black dark:bg-white text-white dark:text-black hover:bg-neutral-800 dark:hover:bg-neutral-100 transition-colors" id="save-preset-btn">Save Preset</button>
-            </div>
+            <h6 class="text-sm font-semibold text-neutral-900 dark:text-white mb-2">Current Parameters</h6>
+            <table class="w-full text-sm">
+                <tbody class="divide-y divide-neutral-100 dark:divide-neutral-800">
+                    <tr>
+                        <td class="py-1.5 text-neutral-600 dark:text-neutral-400">Temperature</td>
+                        <td class="py-1.5 text-neutral-900 dark:text-neutral-100"><span id="modal-temperature-value">0.7</span></td>
+                    </tr>
+                    <tr>
+                        <td class="py-1.5 text-neutral-600 dark:text-neutral-400">Top P</td>
+                        <td class="py-1.5 text-neutral-900 dark:text-neutral-100"><span id="modal-top-p-value">0.9</span></td>
+                    </tr>
+                    <tr>
+                        <td class="py-1.5 text-neutral-600 dark:text-neutral-400">Top K</td>
+                        <td class="py-1.5 text-neutral-900 dark:text-neutral-100"><span id="modal-top-k-value">40</span></td>
+                    </tr>
+                    <tr>
+                        <td class="py-1.5 text-neutral-600 dark:text-neutral-400">Max Tokens</td>
+                        <td class="py-1.5 text-neutral-900 dark:text-neutral-100"><span id="modal-max-tokens-value">Default</span></td>
+                    </tr>
+                    <tr>
+                        <td class="py-1.5 text-neutral-600 dark:text-neutral-400">Context Size</td>
+                        <td class="py-1.5 text-neutral-900 dark:text-neutral-100"><span id="modal-context-size-value">Default</span></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        <div class="flex justify-end gap-2 px-6 py-4 border-t border-neutral-200 dark:border-neutral-800">
+            <button type="button" class="inline-flex items-center px-4 py-2 text-sm font-medium rounded-md bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-colors" onclick="this.closest('dialog').close()">Cancel</button>
+            <button type="button" class="inline-flex items-center px-4 py-2 text-sm font-medium rounded-md bg-black dark:bg-white text-white dark:text-black hover:bg-neutral-800 dark:hover:bg-neutral-100 transition-colors" id="save-preset-btn">Save Preset</button>
         </div>
     </div>
-</div>
+</dialog>
 
 <!-- Parameter Visualization Modal -->
-<div class="modal fade" id="paramVisualizationModal" tabindex="-1" aria-labelledby="paramVisualizationModalLabel" aria-hidden="true" data-backdrop="false">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-950 shadow-xl">
+<dialog id="paramVisualizationModal">
+    <div class="rounded-2xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-950 shadow-xl">
             <div class="flex items-center justify-between px-6 py-4 border-b border-neutral-200 dark:border-neutral-800">
                 <h5 class="text-base font-semibold text-neutral-900 dark:text-white" id="paramVisualizationModalLabel">
                     <i class="fas fa-chart-bar mr-2"></i>Parameter Effects Visualization
                 </h5>
-                <button type="button" class="text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200" data-bs-dismiss="modal" aria-label="Close">
+                <button type="button" class="text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200" onclick="this.closest('dialog').close()" aria-label="Close">
                     <i class="fas fa-times"></i>
                 </button>
             </div>
@@ -171,7 +166,7 @@
 
                 <div>
                     <h6 class="text-sm font-semibold text-neutral-900 dark:text-white mb-3">Recommended Parameter Settings</h6>
-                    <div class="rounded-lg border border-neutral-200 dark:border-neutral-700 overflow-hidden">
+                    <div class="rounded-2xl border border-neutral-200 dark:border-neutral-700 overflow-hidden">
                         <table class="w-full text-sm">
                             <thead class="bg-neutral-50 dark:bg-neutral-900">
                                 <tr>
@@ -217,13 +212,14 @@
                 </div>
             </div>
             <div class="flex justify-end px-6 py-4 border-t border-neutral-200 dark:border-neutral-800">
-                <button type="button" class="inline-flex items-center px-4 py-2 text-sm font-medium rounded-md bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-colors" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="inline-flex items-center px-4 py-2 text-sm font-medium rounded-md bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-colors" onclick="this.closest('dialog').close()">Close</button>
             </div>
         </div>
-    </div>
-</div>
+</dialog>
+{% endblock %}
 
-<div class="max-w-6xl mx-auto">
+{% block content %}
+<div class="p-6 sm:p-8 w-full max-w-6xl self-center flex flex-1 flex-col min-h-0 overflow-y-auto">
     <div class="mb-6">
         <h1 class="text-2xl sm:text-3xl text-neutral-900 tracking-tight dark:text-neutral-200 [overflow-wrap:anywhere] break-all font-semibold">Generate Text</h1>
     </div>
@@ -231,7 +227,7 @@
     <div class="flex flex-col md:flex-row gap-4">
         <!-- Left column: options -->
         <div class="w-full md:w-96 shrink-0">
-            <div class="rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950 shadow-sm p-5">
+            <div class="rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950 shadow-sm p-5">
                 <h5 class="text-base font-semibold text-neutral-900 dark:text-white mb-4">Generation Options</h5>
 
                 <div class="mb-4">
@@ -279,13 +275,13 @@
                                     </select>
                                 </div>
                                 <div class="shrink-0 mb-0.5">
-                                    <button type="button" class="inline-flex items-center px-3 py-2 text-sm font-medium rounded-md bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-colors" data-bs-toggle="modal" data-bs-target="#savePresetModal">
+                                    <button type="button" class="inline-flex items-center px-3 py-2 text-sm font-medium rounded-md bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-colors" onclick="updateModalValues(); document.getElementById('savePresetModal').showModal()">
                                         <i class="fas fa-save mr-1"></i> Save Preset
                                     </button>
                                 </div>
                             </div>
                             <div class="flex justify-between mt-2">
-                                <button type="button" class="text-sm text-blue-600 dark:text-blue-400 hover:underline" data-bs-toggle="modal" data-bs-target="#paramVisualizationModal">
+                                <button type="button" class="text-sm text-blue-600 dark:text-blue-400 hover:underline" onclick="document.getElementById('paramVisualizationModal').showModal()">
                                     <i class="fas fa-chart-bar mr-1"></i> Learn about parameters
                                 </button>
                                 <button type="button" class="text-sm text-red-600 dark:text-red-400 hover:underline hidden" id="delete-preset-btn">
@@ -374,7 +370,7 @@
 
         <!-- Right column: output -->
         <div class="flex-1 min-w-0">
-            <div class="rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950 shadow-sm p-5">
+            <div class="rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950 shadow-sm p-5">
                 <h5 class="text-base font-semibold text-neutral-900 dark:text-white mb-4">Generated Output</h5>
 
                 <div id="result-loading" class="hidden">
@@ -434,59 +430,11 @@
         const modalMaxTokensValue = document.getElementById('modal-max-tokens-value');
         const modalContextSizeValue = document.getElementById('modal-context-size-value');
 
-        // Initialize tooltips
-        const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
-        tooltipTriggerList.forEach(function (tooltipTriggerEl) {
-            new bootstrap.Tooltip(tooltipTriggerEl);
-        });
+        // Initialize tooltips — removed (Bootstrap tooltip JS not loaded)
 
-        // Fix modal backdrop z-index and ensure modals are clickable
-        document.querySelectorAll('.modal').forEach(modal => {
-            modal.addEventListener('shown.bs.modal', function() {
-                setTimeout(() => {
-                    const backdrops = document.querySelectorAll('.modal-backdrop');
-                    backdrops.forEach(backdrop => {
-                        backdrop.style.zIndex = '1040';
-                    });
-                }, 50);
-            });
-        });
+        // Fix modal backdrop z-index — removed (using native <dialog>)
 
-        // Explicitly initialize both modals for proper interaction
-        const paramVisualizationModalEl = document.getElementById('paramVisualizationModal');
-        const savePresetModalEl = document.getElementById('savePresetModal');
-
-        // Initialize the parameter visualization modal
-        if (paramVisualizationModalEl) {
-            window.paramVisualizationModal = new bootstrap.Modal(paramVisualizationModalEl, {
-                backdrop: false,
-                keyboard: true
-            });
-
-            const paramVisualizationBtn = document.querySelector('[data-bs-toggle="modal"][data-bs-target="#paramVisualizationModal"]');
-            if (paramVisualizationBtn) {
-                paramVisualizationBtn.addEventListener('click', function(e) {
-                    e.preventDefault();
-                    window.paramVisualizationModal.show();
-                });
-            }
-        }
-
-        // Initialize the save preset modal
-        if (savePresetModalEl) {
-            window.savePresetModal = new bootstrap.Modal(savePresetModalEl, {
-                backdrop: false,
-                keyboard: true
-            });
-
-            const savePresetBtnTrigger = document.querySelector('[data-bs-toggle="modal"][data-bs-target="#savePresetModal"]');
-            if (savePresetBtnTrigger) {
-                savePresetBtnTrigger.addEventListener('click', function(e) {
-                    e.preventDefault();
-                    window.savePresetModal.show();
-                });
-            }
-        }
+        // Modal init — removed (using native <dialog>)
 
         let isGenerating = false;
 
@@ -576,12 +524,7 @@
 
             saveUserPreset(presetName);
 
-            if (window.savePresetModal) {
-                window.savePresetModal.hide();
-            } else {
-                const modal = bootstrap.Modal.getInstance(document.getElementById('savePresetModal'));
-                if (modal) modal.hide();
-            }
+            document.getElementById('savePresetModal').close();
         });
 
         // Delete preset button
@@ -604,11 +547,6 @@
         if (modelSelect.value) {
             updateGenerateButton();
         }
-
-        // Update the save preset modal when shown
-        document.getElementById('savePresetModal').addEventListener('show.bs.modal', function() {
-            updateModalValues();
-        });
 
         // Functions
         function updateGenerateButton() {

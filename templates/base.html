@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" class="h-full overflow-y-scroll">
+<html lang="en" class="h-full">
 
 <head>
     <meta charset="UTF-8">
@@ -23,8 +23,39 @@
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     <style type="text/tailwindcss">
         @custom-variant dark (&:where(.dark, .dark *));
+        @layer components {
+            .dark { color-scheme: dark; }
+        }
         html { color-scheme: light; }
         html.dark { color-scheme: dark; }
+        @media (max-width: 767px) {
+            #mainSidebar {
+                display: flex !important;
+                flex-direction: column;
+                position: fixed;
+                top: 4rem;
+                left: 0;
+                width: 100%;
+                z-index: 40;
+                max-height: 0;
+                overflow: hidden;
+                transition: max-height 0.3s ease-in-out;
+            }
+            #mainSidebar.mobile-open {
+                max-height: 100vh;
+            }
+        }
+        dialog {
+            position: fixed;
+            inset: 0;
+            margin: auto;
+            height: fit-content;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        dialog::backdrop {
+            background: rgba(0, 0, 0, 0.5);
+        }
     </style>
 </head>
 
@@ -34,11 +65,7 @@
             <img src="https://ollama.com/public/ollama.png" alt="Ollama" class="h-7 w-auto dark:invert">
             <span class="ml-2">WebOllama</span>
         </a>
-        <button id="navToggler" type="button" class="md:hidden ml-auto p-2 rounded-md text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200 focus:outline-none"
-            aria-label="Toggle sidebar">
-            <i class="fas fa-bars"></i>
-        </button>
-        <div class="hidden md:flex items-center ml-auto gap-1">
+        <div class="flex items-center ml-auto gap-4">
             <button
                 class="relative flex lg:h-7 h-[2.375rem] justify-between lg:w-[3.25rem] w-[4.5rem] items-center p-1 rounded-full border border-neutral-200/70 dark:border-neutral-800 hover:border-neutral-200 dark:hover:border-neutral-700"
                 aria-label="Toggle dark mode"
@@ -79,13 +106,17 @@
                 <div class="toggle-indicator absolute left-1 lg:size-5 size-[1.875rem] rounded-full bg-neutral-200/50 dark:bg-neutral-900">
                 </div>
             </button>
+            <button id="navToggler" type="button" class="md:hidden p-2 rounded-md text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200 focus:outline-none"
+                aria-label="Toggle sidebar">
+                <i class="fas fa-bars"></i>
+            </button>
         </div>
     </nav>
-    <div class="flex">
+    <div class="flex h-[calc(100vh-4rem)] overflow-hidden">
         <!-- Sidebar -->
         <aside id="mainSidebar"
-            class="hidden md:flex flex-col w-48 shrink-0 sticky top-16 h-[calc(100vh-4rem)] overflow-y-auto border-r border-neutral-200 dark:border-neutral-800 py-4 bg-white dark:bg-black">
-            <nav class="flex flex-col gap-1 px-2">
+            class="hidden md:flex flex-col w-48 shrink-0 sticky top-16 h-[calc(100vh-4rem)] overflow-y-auto border-r border-neutral-200 dark:border-neutral-800 bg-white dark:bg-black">
+            <nav class="flex flex-col gap-1 px-2 py-4">
                 <a href="/"
                     class="flex items-center px-3 py-2 rounded-md text-sm font-medium transition-colors no-underline {% if request.path == '/' %}bg-neutral-100 dark:bg-neutral-900 text-black dark:text-white font-semibold{% else %}text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-900 hover:text-black dark:hover:text-white{% endif %}">
                     <i class="fas fa-home mr-2 w-5 text-center text-sm opacity-75"></i> Home </a>
@@ -119,8 +150,8 @@
             </nav>
         </aside>
         <!-- Main Content -->
-        <main class="flex-1 min-h-[calc(100vh-4rem)]">
-            <div class="p-12 fade-in"> {% with messages = get_flashed_messages(with_categories=true) %} {% if messages %} {% for category, message in messages %} <div class="flex items-center justify-between gap-4 px-4 py-3 mb-4 rounded-md border text-sm
+        <main class="flex-1 min-w-0 overflow-hidden flex flex-col">
+            <div class="fade-in flex-1 flex flex-col min-h-0"> {% with messages = get_flashed_messages(with_categories=true) %} {% if messages %} {% for category, message in messages %} <div class="flex items-center justify-between gap-4 px-4 py-3 mb-4 rounded-md border text-sm
                             {% if category == 'success' %}bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-800 text-green-800 dark:text-green-300
                             {% elif category == 'danger' %}bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-800 text-red-800 dark:text-red-300
                             {% elif category == 'warning' %}bg-yellow-50 dark:bg-yellow-950/30 border-yellow-200 dark:border-yellow-800 text-yellow-800 dark:text-yellow-300
@@ -133,11 +164,53 @@
                 </div> {% endfor %} {% endif %} {% endwith %} {% block content %}{% endblock %} </div>
         </main>
     </div>
-    <!-- Bootstrap JS Bundle with Popper -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    {% block modals %}{% endblock %}
     <!-- jQuery -->
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script>
+        /**
+         * linkifyUrls — walks text nodes inside `container` and wraps bare URLs
+         * in <a class="auto-link"> tags. Skips elements that already contain an
+         * anchor, code blocks, scripts and style elements.
+         */
+        function linkifyUrls(container) {
+            const urlPattern = /https?:\/\/[^\s<>"']+[^\s<>"'.,;:!?()\]]/g;
+            const SKIP = new Set(['A', 'SCRIPT', 'STYLE', 'CODE', 'PRE', 'TEXTAREA']);
+
+            function walk(node) {
+                if (node.nodeType === Node.TEXT_NODE) {
+                    urlPattern.lastIndex = 0;
+                    const text = node.textContent;
+                    if (!urlPattern.test(text)) return;
+                    urlPattern.lastIndex = 0;
+
+                    const frag = document.createDocumentFragment();
+                    let lastIndex = 0, match;
+                    while ((match = urlPattern.exec(text)) !== null) {
+                        if (match.index > lastIndex) {
+                            frag.appendChild(document.createTextNode(text.slice(lastIndex, match.index)));
+                        }
+                        const a = document.createElement('a');
+                        a.href = match[0];
+                        a.textContent = match[0];
+                        a.className = 'auto-link';
+                        a.target = '_blank';
+                        a.rel = 'noopener noreferrer';
+                        frag.appendChild(a);
+                        lastIndex = match.index + match[0].length;
+                    }
+                    if (lastIndex < text.length) {
+                        frag.appendChild(document.createTextNode(text.slice(lastIndex)));
+                    }
+                    node.parentNode.replaceChild(frag, node);
+                } else if (node.nodeType === Node.ELEMENT_NODE && !SKIP.has(node.tagName)) {
+                    Array.from(node.childNodes).forEach(walk);
+                }
+            }
+
+            Array.from(container.childNodes).forEach(walk);
+        }
+
         document.addEventListener('DOMContentLoaded', function () {
             // Mobile sidebar toggle
             const toggler = document.getElementById('navToggler');
@@ -145,12 +218,7 @@
 
             if (toggler && sidebar) {
                 toggler.addEventListener('click', function () {
-                    if (sidebar.style.display === 'flex') {
-                        sidebar.style.display = '';
-                    } else {
-                        sidebar.style.display = 'flex';
-                        sidebar.style.flexDirection = 'column';
-                    }
+                    sidebar.classList.toggle('mobile-open');
                 });
             }
 

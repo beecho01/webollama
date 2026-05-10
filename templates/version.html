@@ -4,11 +4,14 @@
 
 {% block extra_css %}
 <style>
-    /* Modal shim (Bootstrap CSS not loaded) */
-    .modal { position: fixed; inset: 0; z-index: 1050; display: none; overflow-y: auto; }
-    .modal.show { display: block; background: rgba(0,0,0,0.5); }
-    .modal-dialog { display: flex; align-items: center; justify-content: center; min-height: 100%; padding: 1rem; pointer-events: none; }
-    .modal-content { pointer-events: all; width: 100%; max-width: 500px; }
+    /* Native <dialog> for update check */
+    #updateCheckModal {
+        border: none;
+        padding: 0;
+        width: 100%;
+        max-width: 500px;
+        color: inherit;
+    }
 
     /* Markdown content styling */
     .markdown-content {
@@ -36,6 +39,7 @@
     .markdown-content ul,
     .markdown-content ol {
         margin-bottom: 1rem;
+        word-break: break-word;
     }
 
     .markdown-content ul,
@@ -85,7 +89,6 @@
     }
 
     .markdown-content a {
-        color: #0366d6;
         text-decoration: none;
     }
 
@@ -96,7 +99,7 @@
 {% endblock %}
 
 {% block content %}
-<div class="max-w-5xl mx-auto">
+<div class="p-6 sm:p-8 w-full max-w-6xl self-center flex flex-1 flex-col min-h-0 overflow-y-auto">
     <div class="mb-6">
         <h1 class="text-2xl sm:text-3xl text-neutral-900 tracking-tight dark:text-neutral-200 [overflow-wrap:anywhere] break-all font-semibold">Ollama Version</h1>
     </div>
@@ -219,25 +222,25 @@
                 <i class="fas fa-exclamation-circle mt-0.5 shrink-0"></i>
                 <span>Please make sure Ollama is running and accessible at: <code class="font-mono">{{ config.OLLAMA_API_BASE }}</code></span>
             </div>
-            <button class="inline-flex items-center px-4 py-2 text-sm font-medium rounded-md bg-black dark:bg-white text-white dark:text-black hover:bg-neutral-800 dark:hover:bg-neutral-100 transition-colors" id="retry-connection-btn">
+            <a href="" class="inline-flex items-center px-4 py-2 text-sm font-medium rounded-md bg-black dark:bg-white text-white dark:text-black hover:bg-neutral-800 dark:hover:bg-neutral-100 transition-colors">
                 <i class="fas fa-sync-alt mr-1"></i> Retry Connection
-            </button>
+            </a>
         </div>
     </div>
     {% endif %}
 </div>
+{% endblock %}
 
+{% block modals %}
 {% if version != "Unknown" %}
 <!-- Update Check Modal -->
-<div class="modal fade" id="updateCheckModal" tabindex="-1" aria-labelledby="updateCheckModalLabel" aria-hidden="true" data-backdrop="false">
-    <div class="modal-dialog">
-        <div class="modal-content rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950 shadow-lg">
-            <div class="px-6 py-4 border-b border-neutral-200 dark:border-neutral-800 flex items-center justify-between">
-                <h5 class="text-base font-semibold text-neutral-900 dark:text-white" id="updateCheckModalLabel">Checking for Updates</h5>
-                <button type="button" class="text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200" data-bs-dismiss="modal" aria-label="Close">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
+<dialog id="updateCheckModal" class="rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950 shadow-lg" aria-labelledby="updateCheckModalLabel">
+    <div class="px-6 py-4 border-b border-neutral-200 dark:border-neutral-800 flex items-center justify-between">
+        <h5 class="text-base font-semibold text-neutral-900 dark:text-white" id="updateCheckModalLabel">Checking for Updates</h5>
+        <button type="button" class="text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200" onclick="this.closest('dialog').close()" aria-label="Close">
+            <i class="fas fa-times"></i>
+        </button>
+    </div>
             <div class="p-6 text-center">
                 <div class="flex justify-center mb-4" id="update-check-spinner">
                     <div class="animate-spin h-8 w-8 border-4 border-neutral-200 dark:border-neutral-700 border-t-neutral-900 dark:border-t-white rounded-full"></div>
@@ -263,7 +266,7 @@
                         <i class="fas fa-exclamation-circle text-red-500 fa-3x mb-3"></i>
                         <h5 class="text-base font-semibold text-neutral-900 dark:text-white mb-2">Error Checking for Updates</h5>
                         <p class="text-sm text-neutral-600 dark:text-neutral-400" id="error-message"></p>
-                        <button class="mt-2 inline-flex items-center px-4 py-2 text-sm font-medium rounded-md bg-black dark:bg-white text-white dark:text-black hover:bg-neutral-800 dark:hover:bg-neutral-100 transition-colors" id="retry-update-check-btn">
+                        <button class="mt-2 inline-flex items-center px-4 py-2 text-sm font-medium rounded-md bg-black dark:bg-white text-white dark:text-black hover:bg-neutral-800 dark:hover:bg-neutral-100 transition-colors" id="retry-update-check-btn" onclick="location.reload()">
                             <i class="fas fa-sync-alt mr-1"></i> Retry
                         </button>
                     </div>
@@ -273,39 +276,31 @@
                     <div class="h-2 rounded-full bg-neutral-900 dark:bg-white w-full animate-pulse"></div>
                 </div>
             </div>
-            <div class="px-6 py-4 border-t border-neutral-200 dark:border-neutral-800 flex justify-end" id="update-modal-footer" style="display: none;">
-                <button type="button"
-                    class="inline-flex items-center px-4 py-2 text-sm font-medium rounded-md bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-colors"
-                    data-bs-dismiss="modal">Close</button>
-            </div>
-        </div>
+    <div class="px-6 py-4 border-t border-neutral-200 dark:border-neutral-800 flex justify-end" id="update-modal-footer" style="display: none;">
+        <button type="button"
+            class="inline-flex items-center px-4 py-2 text-sm font-medium rounded-md bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-colors"
+            onclick="this.closest('dialog').close()">Close</button>
     </div>
-</div>
+</dialog>
 {% endif %}
 {% endblock %}
 
 {% block extra_js %}
 <script>
     document.addEventListener('DOMContentLoaded', function() {
+        // Auto-link bare URLs in the changelog
+        const changelog = document.querySelector('.changelog-container');
+        if (changelog) linkifyUrls(changelog);
+
         {% if version != "Unknown" %}
         // Handle check for updates button
         const checkUpdatesBtn = document.getElementById('check-updates-btn');
         
         if (checkUpdatesBtn) {
             checkUpdatesBtn.addEventListener('click', function() {
-                // Show the modal with proper configuration
                 const updateModalElement = document.getElementById('updateCheckModal');
-                const updateModal = new bootstrap.Modal(updateModalElement, {
-                    backdrop: false,
-                    keyboard: false
-                });
-                updateModal.show();
-                
-                // Ensure modal has proper z-index
-                setTimeout(() => {
-                    document.querySelector('.modal-backdrop').style.zIndex = '1040';
-                }, 100);
-                
+                updateModalElement.showModal();
+
                 // Elements for updating the modal
                 const spinner = document.getElementById('update-check-spinner');
                 const result = document.getElementById('update-check-result');
@@ -356,30 +351,10 @@
                         errorResult.style.display = 'block';
                         errorMessage.textContent = error.message || 'Failed to check for updates';
                         modalFooter.style.display = 'block';
-                        
-                        // Add retry button functionality
-                        const retryBtn = document.getElementById('retry-update-check-btn');
-                        if (retryBtn) {
-                            retryBtn.addEventListener('click', function() {
-                                window.location.reload();
-                            });
-                        }
                     });
             });
         }
         
-        // Update instructions button removed as requested
-        
-        // Server uptime tracking removed as requested
-        {% else %}
-        // Handle retry connection button
-        const retryBtn = document.getElementById('retry-connection-btn');
-        if (retryBtn) {
-            retryBtn.addEventListener('click', function() {
-                // Reload the page to retry the connection
-                window.location.reload();
-            });
-        }
         {% endif %}
     });
 </script>

@@ -1,4 +1,15 @@
 /* ================================================
+   Auto-linked URLs (linkifyUrls utility)
+   ================================================ */
+a.auto-link {
+  text-decoration: none;
+}
+
+a.auto-link:hover {
+  text-decoration: underline;
+}
+
+/* ================================================
    Dark Mode Toggle
    ================================================ */
 .toggle-indicator {

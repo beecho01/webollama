@@ -37,12 +37,6 @@
         // Update visibility when selection changes
         creationMethod.addEventListener('change', updateVisibility);
         
-        // Initialize tooltips
-        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
-        tooltipTriggerList.map(function (tooltipTriggerEl) {
-            return new bootstrap.Tooltip(tooltipTriggerEl)
-        });
-        
         // Handle form submission with streaming
         if (createForm) {
             createForm.addEventListener('submit', function(e) {
@@ -173,7 +167,7 @@
 {% endblock %}
 
 {% block content %}
-<div>
+<div class="p-6 sm:p-8 w-full max-w-6xl self-center flex flex-1 flex-col min-h-0 overflow-y-auto">
     <div class="mb-6">
         <h1 class="text-2xl sm:text-3xl text-neutral-900 tracking-tight dark:text-neutral-200 [overflow-wrap:anywhere] break-all font-semibold">Create Model</h1>
         <p class="text-sm text-neutral-500 dark:text-neutral-400">Create a new model from an existing model or from files</p>
@@ -181,7 +175,7 @@
 
     <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div class="md:col-span-2">
-            <div class="rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950 shadow-sm mb-4">
+            <div class="rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950 shadow-sm mb-4">
                 <div class="p-6">
                     <form id="create-model-form" method="POST" action="/create-model">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -299,7 +293,7 @@
         </div>
         
         <div class="md:col-span-1">
-            <div class="rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950 shadow-sm">
+            <div class="rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950 shadow-sm">
                 <div class="p-6">
                     <h5 class="text-base font-semibold text-neutral-900 dark:text-white mb-3">
                         <i class="fas fa-info-circle mr-2"></i>About Model Creation
