@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, jsonify, redirect, url_for, flash, Response
+from flask import Flask, render_template, request, jsonify, redirect, url_for, flash, Response, send_from_directory
 import requests
 import json
 import os
@@ -27,6 +27,11 @@ HOST = os.getenv('HOST', '127.0.0.1')
 # Background pull job tracking
 _pull_jobs = {}
 _pull_jobs_lock = threading.Lock()
+
+
+@app.route('/assets/<path:filename>')
+def serve_assets(filename):
+    return send_from_directory('assets', filename)
 
 
 def _pull_worker(job_id, model_name):

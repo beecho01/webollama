@@ -201,45 +201,68 @@
         text-decoration: underline;
     }
 </style>
-<link id="hljs-theme" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
-{% endblock %} {% block content %} 
-<div class="p-6 sm:p-8 w-full max-w-6xl self-center flex flex-1 flex-col min-h-0">
-    <div class="mb-6 shrink-0">
+<link id="hljs-theme" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css"> {% endblock %} {% block content %} <div
+    class="w-full self-center flex flex-1 flex-col min-h-0">
+    <div class="pl-6 pt-6 mb-6 shrink-0">
         <h1 class="text-2xl sm:text-3xl text-neutral-900 tracking-tight dark:text-neutral-200 [overflow-wrap:anywhere] break-all font-semibold">Chat with Ollama</h1>
     </div>
-    <div class="flex flex-col lg:flex-row gap-4 flex-1 min-h-0">
-        <div class="w-full lg:w-64 shrink-0">
-            <div class="rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950 shadow-sm p-5">
-                <h5 class="text-base font-semibold text-neutral-900 dark:text-white mb-4">Model Selection</h5>
-                <div class="mb-4">
-                    <label for="model-select" class="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">Choose a model</label>
-                    <select
-                        class="w-full rounded-md border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-neutral-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-400"
-                        id="model-select">
-                        <option value="" disabled selected>Select a model</option> {% for model in models %} <option value="{{ model.name }}" {% if request.args.get('model')==model.name %}selected{%
-                            endif %}>{{ model.name }}</option> {% endfor %}
-                    </select>
+    <div class="flex-1 min-w-0 flex flex-col min-h-0 border-t-1 border-neutral-300 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-950">
+        <div class="flex flex-row justify-between p-5 bg-transparent">
+            <!-- Custom Model Dropdown -->
+            <div class="relative" id="model-dropdown-wrapper">
+                <!-- Hidden native select preserved for JS compatibility -->
+                <select id="model-select" class="hidden">
+                    <option value="" disabled {% if not request.args.get('model') %}selected{% endif %}>Select a model</option>
+                    {% for model in models|sort(attribute='name') %}
+                    <option value="{{ model.name }}" {% if request.args.get('model')==model.name %}selected{% endif %}>{{ model.name }}</option>
+                    {% endfor %}
+                </select>
+                <!-- Trigger button -->
+                <button type="button" id="model-trigger"
+                    class="inline-flex items-center gap-2 px-3 py-2 text-sm rounded-md border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-neutral-100 hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors min-w-44">
+                    <img id="model-trigger-icon" src="" class="w-4 h-4 hidden shrink-0" alt="">
+                    <span id="model-trigger-label" class="flex-1 text-left truncate">Select a model</span>
+                    <svg id="model-trigger-chevron" class="w-3.5 h-3.5 shrink-0 text-neutral-400 transition-transform duration-150" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd"/>
+                    </svg>
+                </button>
+                <!-- Dropdown panel -->
+                <div id="model-dropdown-panel"
+                    class="hidden absolute top-full left-0 mt-1 min-w-56 max-h-72 overflow-y-auto rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 shadow-lg z-50 py-1">
+                    {% for model in models|sort(attribute='name') %}
+                    <div class="model-option flex items-center gap-2.5 px-3 py-2 text-sm cursor-pointer text-neutral-900 dark:text-neutral-100 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+                        data-value="{{ model.name }}">
+                        <img class="model-option-icon w-4 h-4 shrink-0 hidden" src="" alt="">
+                        <span class="flex-1 truncate">{{ model.name }}</span>
+                        <svg class="model-option-check w-3.5 h-3.5 shrink-0 {% if request.args.get('model') != model.name %}hidden{% endif %} text-neutral-700 dark:text-neutral-300" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd"/>
+                        </svg>
+                    </div>
+                    {% endfor %}
                 </div>
-                <button
-                    class="w-full inline-flex items-center justify-center px-4 py-2 text-sm font-medium rounded-md bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-colors"
-                    id="clear-chat">
-                    <i class="fas fa-broom mr-2"></i> Clear Chat </button>
             </div>
+            <button
+                class="w-max inline-flex items-center justify-center px-4 py-2 text-sm font-medium rounded-md bg-neutral-100 dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-neutral-100 hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-colors"
+                id="clear-chat">
+                <i class="fas fa-broom mr-2"></i> Clear Chat </button>
         </div>
-        <div class="flex-1 min-w-0 flex flex-col min-h-0">
-            <div class="chat-container">
-                <div class="flex flex-col flex-1 min-h-0 rounded-2xl p-4 mb-4 overflow-y-auto overflow-x-hidden bg-gray-50 dark:bg-white/5 border border-gray-950/10 dark:border-white/10" id="chat-messages">
-                    <!-- Messages will be added here -->
-                </div>
-                <div class="h-28 rounded-2xl bg-gray-100 dark:bg-neutral-800 border border-gray-950/10 dark:border-white/10 relative">
+        <div class="chat-container">
+            <div class="flex flex-col flex-1 min-h-0 p-4 overflow-y-auto overflow-x-hidden bg-transparent mask-b-from-[95%] mask-b-to-[100%]" id="chat-messages">
+                <!-- Messages will be added here -->
+            </div>
+            <!-- Chat input area -->
+            <div class="pb-5 px-5 rounded-b-2xl bg-transparent">
+                <div class="h-28 rounded-2xl max-w-6xl mx-auto justify-around bg-neutral-100 dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 relative">
                     <div class="flex chat-input">
                         <textarea id="message-input"
                             class="grow m-4 outline outline-0 focus:outline-0 active:border-transparent bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 min-h-16 disabled:opacity-50 disabled:cursor-not-allowed"
-                            placeholder="{% if request.args.get('model') %}Type your message here ...{% else %}Select a model to start chatting...{% endif %}"
-                            {% if not request.args.get('model') %}disabled{% endif %}></textarea>
+                            placeholder="{% if request.args.get('model') %}Type your message here ...{% else %}Select a model to start chatting...{% endif %}" {% if not request.args.get('model')
+                            %}disabled{% endif %}></textarea>
                     </div>
                     <div class="flex gap-2 items-center absolute right-2 bottom-2">
-                        <button id="send-button" class="bg-neutral-200 dark:bg-white hover:bg-neutral-300 dark:hover:bg-neutral-200 transition-colors rounded-full text-neutral-700 hover:text-neutral-600 w-8 h-8 p-2 disabled:opacity-40 disabled:cursor-not-allowed" {% if not request.args.get('model') %}disabled{% endif %}>
+                        <button id="send-button"
+                            class="bg-neutral-200 dark:bg-white hover:bg-neutral-300 dark:hover:bg-neutral-200 transition-colors rounded-full text-neutral-700 hover:text-neutral-600 w-8 h-8 p-2 disabled:opacity-40 disabled:cursor-not-allowed"
+                            {% if not request.args.get('model') %}disabled{% endif %}>
                             <!-- Send icon (arrow up) -->
                             <svg id="icon-send" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
                                 <path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="48" d="M112 244l144-144l144 144"></path>
@@ -298,6 +321,126 @@
                 pre.appendChild(btn);
             });
         }
+
+        // ── Custom model dropdown ──────────────────────────────────────────
+        function getProviderIcon(modelName) {
+            const raw = (modelName || '').toLowerCase();
+            // For hf.co/<user>/<model> — match against the model-name segment first, fall back to HuggingFace
+            const isHf = raw.startsWith('hf.co/');
+            const name = isHf ? raw.split('/').slice(2).join('/') : raw;
+            const map = [
+                [/deepseek/,                                        'deepseek-color.svg'],
+                [/llama|meta/,                                      'meta-color.svg'],
+                [/gemma/,                                           'gemma-color.svg'],
+                [/gemini/,                                          'gemini-color.svg'],
+                [/mistral|mixtral|codestral|devstral|ministral/,    'mistral-color.svg'],
+                [/phi/,                                             'microsoft-color.svg'],
+                [/copilot/,                                         'copilot-color.svg'],
+                [/qwen/,                                            'qwen-color.svg'],
+                [/grok/,                                            'grok.svg'],
+                [/groq/,                                            'groq.svg'],
+                [/claude|anthropic/,                                'claude-color.svg'],
+                [/gpt|openai/,                                      'openai.svg'],
+                [/command|cohere/,                                  'cohere-color.svg'],
+                [/perplexity|pplx|sonar/,                           'perplexity.svg'],
+                [/stable.?diffusion|sdxl|stability|stablelm/,       'stability-color.svg'],
+                [/minimax|abab/,                                    'minimax-color.svg'],
+                [/doubao|skylark|bytedance/,                        'bytedance-color.svg'],
+                [/\byi\b|yi[-_]|01-ai|zeroone/,                     'zeroone-color.svg'],
+                [/chatglm|glm|zhipu/,                               'zai.svg'],
+                [/fireworks/,                                       'fireworks-color.svg'],
+                [/kling/,                                           'kling-color.svg'],
+                [/luma/,                                            'luma-color.svg'],
+                [/midjourney/,                                      'midjourney.svg'],
+                [/replicate/,                                       'replicate.svg'],
+                [/kimi/,                                            'kimi.png'],
+                [/snowflake/,                                       'snowflake-color.svg'],
+                [/nomic/,                                           'nomic.png'],
+                [/ibm|granite/,                                     'granite.svg'],
+                [/starcoder|falcon/,                                'huggingface-color.svg'],
+            ];
+            for (const [pattern, icon] of map) {
+                if (pattern.test(name)) return icon;
+            }
+            return isHf ? 'huggingface-color.svg' : null;
+        }
+
+        function resolveIconSrc(modelName) {
+            const icon = getProviderIcon(modelName);
+            if (!icon) return null;
+            const mode = document.documentElement.classList.contains('dark') ? 'dark-mode' : 'light-mode';
+            return `/assets/icons/${mode}/${icon}`;
+        }
+
+        const modelTrigger        = document.getElementById('model-trigger');
+        const modelTriggerIcon    = document.getElementById('model-trigger-icon');
+        const modelTriggerLabel   = document.getElementById('model-trigger-label');
+        const modelTriggerChevron = document.getElementById('model-trigger-chevron');
+        const modelDropdownPanel  = document.getElementById('model-dropdown-panel');
+        const modelOptions        = document.querySelectorAll('.model-option');
+
+        function setTriggerState(modelName) {
+            modelTriggerLabel.textContent = modelName || 'Select a model';
+            const src = modelName ? resolveIconSrc(modelName) : null;
+            if (src) {
+                modelTriggerIcon.src = src;
+                modelTriggerIcon.classList.remove('hidden');
+            } else {
+                modelTriggerIcon.classList.add('hidden');
+            }
+        }
+
+        function refreshOptionIcons() {
+            modelOptions.forEach(opt => {
+                const iconEl = opt.querySelector('.model-option-icon');
+                const src = resolveIconSrc(opt.dataset.value);
+                if (src) { iconEl.src = src; iconEl.classList.remove('hidden'); }
+                else { iconEl.classList.add('hidden'); }
+            });
+        }
+
+        function openDropdown() {
+            modelDropdownPanel.classList.remove('hidden');
+            modelTriggerChevron.style.transform = 'rotate(180deg)';
+        }
+
+        function closeDropdown() {
+            modelDropdownPanel.classList.add('hidden');
+            modelTriggerChevron.style.transform = '';
+        }
+
+        modelTrigger.addEventListener('click', () => {
+            modelDropdownPanel.classList.contains('hidden') ? openDropdown() : closeDropdown();
+        });
+
+        document.addEventListener('click', e => {
+            if (!document.getElementById('model-dropdown-wrapper').contains(e.target)) closeDropdown();
+        });
+
+        document.addEventListener('keydown', e => { if (e.key === 'Escape') closeDropdown(); });
+
+        modelOptions.forEach(opt => {
+            opt.addEventListener('click', () => {
+                const val = opt.dataset.value;
+                modelSelect.value = val;
+                modelOptions.forEach(o => o.querySelector('.model-option-check').classList.add('hidden'));
+                opt.querySelector('.model-option-check').classList.remove('hidden');
+                setTriggerState(val);
+                closeDropdown();
+                modelSelect.dispatchEvent(new Event('change'));
+            });
+        });
+
+        // Re-resolve icons when dark mode toggles
+        new MutationObserver(() => {
+            refreshOptionIcons();
+            if (modelSelect.value) setTriggerState(modelSelect.value);
+        }).observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+
+        // Init
+        refreshOptionIcons();
+        if (modelSelect.value) setTriggerState(modelSelect.value);
+        // ── End custom dropdown ────────────────────────────────────────────
 
         const clearChatButton = document.getElementById('clear-chat');
 
