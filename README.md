@@ -88,7 +88,7 @@ Built with Flask and Tailwind CSS. Styled to feel at home alongside the official
 
 ## Quick Start
 
-> **New to this?** This is the fastest path to a running instance. You need [Docker Desktop](https://www.docker.com/products/docker-desktop/) installed - nothing else.
+> This is the fastest path to a running instance. You will need to install [Docker Desktop](https://www.docker.com/products/docker-desktop/).
 
 **1. Generate a secret key** (copy the output - you'll need it in step 2):
 
