@@ -17,22 +17,22 @@
         <div class="p-6">
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div class="space-y-1">
-                    <a href="#overview" class="block px-3 py-2 text-sm text-neutral-700 dark:text-neutral-300 rounded hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors">Overview</a>
-                    <a href="#home" class="block px-3 py-2 text-sm text-neutral-700 dark:text-neutral-300 rounded hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors">Home Page</a>
-                    <a href="#models" class="block px-3 py-2 text-sm text-neutral-700 dark:text-neutral-300 rounded hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors">Models</a>
-                    <a href="#running-models" class="block px-3 py-2 text-sm text-neutral-700 dark:text-neutral-300 rounded hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors">Running Models</a>
+                    <a href="#overview" class="block px-3 py-2 text-sm text-neutral-700 dark:text-neutral-300 rounded transition-colors hover:underline">Overview</a>
+                    <a href="#home" class="block px-3 py-2 text-sm text-neutral-700 dark:text-neutral-300 rounded transition-colors hover:underline">Home Page</a>
+                    <a href="#models" class="block px-3 py-2 text-sm text-neutral-700 dark:text-neutral-300 rounded transition-colors hover:underline">Models</a>
+                    <a href="#running-models" class="block px-3 py-2 text-sm text-neutral-700 dark:text-neutral-300 rounded transition-colors hover:underline">Running Models</a>
                 </div>
                 <div class="space-y-1">
-                    <a href="#pull-model" class="block px-3 py-2 text-sm text-neutral-700 dark:text-neutral-300 rounded hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors">Pull Model</a>
-                    <a href="#create-model" class="block px-3 py-2 text-sm text-neutral-700 dark:text-neutral-300 rounded hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors">Create Model</a>
-                    <a href="#chat" class="block px-3 py-2 text-sm text-neutral-700 dark:text-neutral-300 rounded hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors">Chat</a>
-                    <a href="#generate" class="block px-3 py-2 text-sm text-neutral-700 dark:text-neutral-300 rounded hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors">Generate</a>
+                    <a href="#pull-model" class="block px-3 py-2 text-sm text-neutral-700 dark:text-neutral-300 rounded transition-colors hover:underline">Pull Model</a>
+                    <a href="#create-model" class="block px-3 py-2 text-sm text-neutral-700 dark:text-neutral-300 rounded transition-colors hover:underline">Create Model</a>
+                    <a href="#chat" class="block px-3 py-2 text-sm text-neutral-700 dark:text-neutral-300 rounded transition-colors hover:underline">Chat</a>
+                    <a href="#generate" class="block px-3 py-2 text-sm text-neutral-700 dark:text-neutral-300 rounded transition-colors hover:underline">Generate</a>
                 </div>
                 <div class="space-y-1">
-                    <a href="#version" class="block px-3 py-2 text-sm text-neutral-700 dark:text-neutral-300 rounded hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors">Ollama Version</a>
-                    <a href="#model-parameters" class="block px-3 py-2 text-sm text-neutral-700 dark:text-neutral-300 rounded hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors">Model Parameters</a>
-                    <a href="#troubleshooting" class="block px-3 py-2 text-sm text-neutral-700 dark:text-neutral-300 rounded hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors">Troubleshooting</a>
-                    <a href="#faq" class="block px-3 py-2 text-sm text-neutral-700 dark:text-neutral-300 rounded hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors">FAQ</a>
+                    <a href="#version" class="block px-3 py-2 text-sm text-neutral-700 dark:text-neutral-300 rounded transition-colors hover:underline">Ollama Version</a>
+                    <a href="#model-parameters" class="block px-3 py-2 text-sm text-neutral-700 dark:text-neutral-300 rounded transition-colors hover:underline">Model Parameters</a>
+                    <a href="#troubleshooting" class="block px-3 py-2 text-sm text-neutral-700 dark:text-neutral-300 rounded transition-colors hover:underline">Troubleshooting</a>
+                    <a href="#faq" class="block px-3 py-2 text-sm text-neutral-700 dark:text-neutral-300 rounded transition-colors hover:underline">FAQ</a>
                 </div>
             </div>
         </div>
@@ -44,7 +44,7 @@
             <h2 class="text-base font-semibold text-neutral-900 dark:text-white">Overview</h2>
         </div>
         <div class="p-6 text-sm text-neutral-700 dark:text-neutral-300 space-y-3">
-            <p>WebOllama is a web interface for <a href="https://ollama.com" target="_blank" class="text-blue-600 dark:text-blue-400 hover:underline">Ollama</a>, providing an easy-to-use front end for managing and interacting with local large language models (LLMs).</p>
+            <p>WebOllama is a web interface for <a href="https://ollama.com" target="_blank" class="underline">Ollama</a>, providing an easy-to-use front end for managing and interacting with local large language models (LLMs).</p>
             <p>With WebOllama, you can:</p>
             <ul class="list-disc list-inside space-y-1">
                 <li>Pull and manage models from the Ollama library</li>
@@ -147,9 +147,9 @@
             <p>From this page, you can manually unload models to free up system memory when they're no longer needed.</p>
             <h3 class="text-sm font-semibold text-neutral-900 dark:text-white mt-2">Model Lifecycle</h3>
             <p>Ollama automatically loads models when you first use them and keeps them in memory for faster response times. Models will automatically unload after a period of inactivity (typically 30 minutes) unless configured differently.</p>
-            <div class="flex items-start gap-2 px-4 py-3 rounded-md border text-sm bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800 text-blue-800 dark:text-blue-300">
-                <i class="fas fa-info-circle mt-0.5 shrink-0"></i>
-                <span>Keeping multiple large models loaded simultaneously can consume significant system RAM. If you're experiencing performance issues, try unloading unused models.</span>
+            <div class="callout my-4 px-5 py-4 overflow-hidden rounded-2xl flex gap-3 border border-blue-200 bg-blue-50 dark:border-blue-900 dark:bg-blue-600/20">
+                <i class="fas fa-info-circle size-4 text-blue-800 dark:text-blue-300 mt-[2.5px]"></i>
+                <span class="text-sm prose dark:prose-invert min-w-0 w-full [&_kbd]:bg-background-light dark:[&_kbd]:bg-background-dark [&_code]:!text-current [&_kbd]:!text-current [&_a]:!text-current [&_a]:border-current [&_strong]:!text-current text-blue-800 dark:text-blue-300">Keeping multiple large models loaded simultaneously can consume significant system RAM. If you're experiencing performance issues, try unloading unused models.</span>
             </div>
         </div>
     </div>
@@ -214,9 +214,9 @@
                 <li><code class="font-mono text-xs bg-neutral-100 dark:bg-neutral-800 px-1 rounded">:7b</code>, <code class="font-mono text-xs bg-neutral-100 dark:bg-neutral-800 px-1 rounded">:13b</code>, <code class="font-mono text-xs bg-neutral-100 dark:bg-neutral-800 px-1 rounded">:70b</code> - Different parameter sizes</li>
                 <li><code class="font-mono text-xs bg-neutral-100 dark:bg-neutral-800 px-1 rounded">:8_0</code>, <code class="font-mono text-xs bg-neutral-100 dark:bg-neutral-800 px-1 rounded">:4_0</code> - Different quantization levels</li>
             </ul>
-            <div class="flex items-start gap-2 px-4 py-3 rounded-md border text-sm bg-yellow-50 dark:bg-yellow-950/30 border-yellow-200 dark:border-yellow-800 text-yellow-800 dark:text-yellow-300">
-                <i class="fas fa-exclamation-triangle mt-0.5 shrink-0"></i>
-                <span>Larger models provide better quality results but require more system resources (RAM and GPU memory).</span>
+            <div class="callout my-4 px-5 py-4 overflow-hidden rounded-2xl flex gap-3 border border-yellow-200 bg-yellow-50 dark:border-yellow-900 dark:bg-yellow-600/20">
+                <i class="fas fa-exclamation-triangle size-4 text-yellow-800 dark:text-yellow-300 mt-[2.5px]"></i>
+                <span class="text-sm prose dark:prose-invert min-w-0 w-full [&_kbd]:bg-background-light dark:[&_kbd]:bg-background-dark [&_code]:!text-current [&_kbd]:!text-current [&_a]:!text-current [&_a]:border-current [&_strong]:!text-current text-yellow-800 dark:text-yellow-300">Larger models provide better quality results but require more system resources (RAM and GPU memory).</span>
             </div>
         </div>
     </div>
@@ -234,7 +234,7 @@
                 <li>Add system prompts to guide the model's behavior</li>
                 <li>Specify custom templates for prompt formatting</li>
             </ul>
-            <p>For detailed information about model creation options, visit the <a href="/model_help" class="text-blue-600 dark:text-blue-400 hover:underline">Model Creation Help</a> page.</p>
+            <p>For detailed information about model creation options, visit the <a href="/model_help" class="underline">Model Creation Help</a> page.</p>
 
             <h3 class="text-sm font-semibold text-neutral-900 dark:text-white mt-4">Creating from Existing Models</h3>
             <p>The most common approach is to create a new model based on an existing one:</p>
@@ -245,9 +245,9 @@
                 <li>Adjust parameters like temperature and context length if needed</li>
                 <li>Click "Create Model"</li>
             </ol>
-            <div class="flex items-start gap-2 px-4 py-3 rounded-md border text-sm bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800 text-blue-800 dark:text-blue-300">
-                <i class="fas fa-info-circle mt-0.5 shrink-0"></i>
-                <span>Custom models with specific instructions often perform better for specialized tasks than general-purpose models.</span>
+            <div class="callout my-4 px-5 py-4 overflow-hidden rounded-2xl flex gap-3 border border-blue-200 bg-blue-50 dark:border-blue-900 dark:bg-blue-600/20">
+                <i class="fas fa-info-circle size-4 text-blue-800 dark:text-blue-300 mt-[2.5px]"></i>
+                <span class="text-sm prose dark:prose-invert min-w-0 w-full [&_kbd]:bg-background-light dark:[&_kbd]:bg-background-dark [&_code]:!text-current [&_kbd]:!text-current [&_a]:!text-current [&_a]:border-current [&_strong]:!text-current text-blue-800 dark:text-blue-300">Custom models with specific instructions often perform better for specialized tasks than general-purpose models.</span>
             </div>
         </div>
     </div>
@@ -278,9 +278,9 @@
                 <li>Provide context in your messages when needed</li>
                 <li>Use custom models with relevant system prompts for specialized tasks</li>
             </ul>
-            <div class="flex items-start gap-2 px-4 py-3 rounded-md border text-sm bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800 text-blue-800 dark:text-blue-300">
-                <i class="fas fa-info-circle mt-0.5 shrink-0"></i>
-                <span>The model will remember previous messages in the current conversation, but this context is limited by the model's context window size.</span>
+            <div class="callout my-4 px-5 py-4 overflow-hidden rounded-2xl flex gap-3 border border-blue-200 bg-blue-50 dark:border-blue-900 dark:bg-blue-600/20">
+                <i class="fas fa-info-circle size-4 text-blue-800 dark:text-blue-300 mt-[2.5px]"></i>
+                <span class="text-sm prose dark:prose-invert min-w-0 w-full [&_kbd]:bg-background-light dark:[&_kbd]:bg-background-dark [&_code]:!text-current [&_kbd]:!text-current [&_a]:!text-current [&_a]:border-current [&_strong]:!text-current text-blue-800 dark:text-blue-300">The model will remember previous messages in the current conversation, but this context is limited by the model's context window size.</span>
             </div>
         </div>
     </div>
@@ -347,9 +347,9 @@
                 <li>Custom text formatting for specific outputs</li>
                 <li>Testing how parameter changes affect outputs</li>
             </ul>
-            <div class="flex items-start gap-2 px-4 py-3 rounded-md border text-sm bg-yellow-50 dark:bg-yellow-950/30 border-yellow-200 dark:border-yellow-800 text-yellow-800 dark:text-yellow-300">
-                <i class="fas fa-exclamation-triangle mt-0.5 shrink-0"></i>
-                <span>Unlike Chat mode, Generate doesn't maintain conversation history. Each generation is independent.</span>
+            <div class="callout my-4 px-5 py-4 overflow-hidden rounded-2xl flex gap-3 border border-yellow-200 bg-yellow-50 dark:border-yellow-900 dark:bg-yellow-600/20">
+                <i class="fas fa-exclamation-triangle size-4 text-yellow-800 dark:text-yellow-300 mt-[2.5px]"></i>
+                <span class="text-sm prose dark:prose-invert min-w-0 w-full [&_kbd]:bg-background-light dark:[&_kbd]:bg-background-dark [&_code]:!text-current [&_kbd]:!text-current [&_a]:!text-current [&_a]:border-current [&_strong]:!text-current text-yellow-800 dark:text-yellow-300">Unlike Chat mode, Generate doesn't maintain conversation history. Each generation is independent.</span>
             </div>
         </div>
     </div>
@@ -368,9 +368,9 @@
                 <li>Release notes and changelog for the latest version</li>
             </ul>
             <p>When updates are available, this page provides links to download the latest version for your platform.</p>
-            <div class="flex items-start gap-2 px-4 py-3 rounded-md border text-sm bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800 text-blue-800 dark:text-blue-300">
-                <i class="fas fa-info-circle mt-0.5 shrink-0"></i>
-                <span>Keeping Ollama updated ensures you have access to the latest models, features, and performance improvements.</span>
+            <div class="callout my-4 px-5 py-4 overflow-hidden rounded-2xl flex gap-3 border border-blue-200 bg-blue-50 dark:border-blue-900 dark:bg-blue-600/20 my-4">
+                <i class="fas fa-info-circle size-4 text-blue-800 dark:text-blue-300 mt-[2.5px]"></i>
+                <span class="text-sm prose dark:prose-invert min-w-0 w-full [&_kbd]:bg-background-light dark:[&_kbd]:bg-background-dark [&_code]:!text-current [&_kbd]:!text-current [&_a]:!text-current [&_a]:border-current [&_strong]:!text-current text-blue-800 dark:text-blue-300">Keeping Ollama updated ensures you have access to the latest models, features, and performance improvements.</span>
             </div>
         </div>
     </div>

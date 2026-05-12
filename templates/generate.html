@@ -231,13 +231,39 @@
                 <h5 class="text-base font-semibold text-neutral-900 dark:text-white mb-4">Generation Options</h5>
 
                 <div class="mb-4">
-                    <label for="model-select" class="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">Model</label>
-                    <select class="w-full rounded-md border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-neutral-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-400" id="model-select">
-                        <option value="" disabled selected>Select a model</option>
-                        {% for model in models %}
-                        <option value="{{ model.name }}" {% if request.args.get('model') == model.name %}selected{% endif %}>{{ model.name }}</option>
-                        {% endfor %}
-                    </select>
+                    <label class="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">Model</label>
+                    <div class="relative" id="model-dropdown-wrapper">
+                        <!-- Hidden native select preserved for JS compatibility -->
+                        <select id="model-select" class="hidden">
+                            <option value="" disabled {% if not request.args.get('model') %}selected{% endif %}>Select a model</option>
+                            {% for model in models|sort(attribute='name') %}
+                            <option value="{{ model.name }}" {% if request.args.get('model') == model.name %}selected{% endif %}>{{ model.name }}</option>
+                            {% endfor %}
+                        </select>
+                        <!-- Trigger button -->
+                        <button type="button" id="model-trigger"
+                            class="w-full inline-flex items-center gap-2 px-3 py-2 text-sm rounded-md border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-neutral-100 hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors">
+                            <img id="model-trigger-icon" src="" class="w-4 h-4 hidden shrink-0" alt="">
+                            <span id="model-trigger-label" class="flex-1 text-left truncate text-neutral-500 dark:text-neutral-400">Select a model</span>
+                            <svg id="model-trigger-chevron" class="w-3.5 h-3.5 shrink-0 text-neutral-400 transition-transform duration-150" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd"/>
+                            </svg>
+                        </button>
+                        <!-- Dropdown panel -->
+                        <div id="model-dropdown-panel"
+                            class="hidden absolute top-full left-0 mt-1 w-full max-h-72 overflow-y-auto rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 shadow-lg z-50 py-1">
+                            {% for model in models|sort(attribute='name') %}
+                            <div class="model-option flex items-center gap-2.5 px-3 py-2 text-sm cursor-pointer text-neutral-900 dark:text-neutral-100 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+                                data-value="{{ model.name }}">
+                                <img class="model-option-icon w-4 h-4 shrink-0 hidden" src="" alt="">
+                                <span class="flex-1 truncate">{{ model.name }}</span>
+                                <svg class="model-option-check w-3.5 h-3.5 shrink-0 {% if request.args.get('model') != model.name %}hidden{% endif %} text-neutral-700 dark:text-neutral-300" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd"/>
+                                </svg>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
                 </div>
 
                 <div class="mb-4">
@@ -370,8 +396,15 @@
 
         <!-- Right column: output -->
         <div class="flex-1 min-w-0">
-            <div class="rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950 shadow-sm p-5">
+            <div class="h-full min-h-max rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950 shadow-sm p-5 flex flex-col">
                 <h5 class="text-base font-semibold text-neutral-900 dark:text-white mb-4">Generated Output</h5>
+
+                <div id="output-placeholder" class="flex flex-1 flex-col items-center justify-center text-center">
+                    <svg class="mb-4 h-8 w-8 text-neutral-300 dark:text-neutral-600" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                        <path d="M12 2l2.09 6.41L20.5 10l-6.41 2.09L12 18.5l-2.09-6.41L3.5 10l6.41-2.09L12 2z"/>
+                    </svg>
+                    <p class="text-sm text-neutral-500 dark:text-neutral-400 max-w-xs">Enter your prompt on the left and click <span class="font-semibold text-neutral-700 dark:text-neutral-300">Generate</span> to produce output.</p>
+                </div>
 
                 <div id="result-loading" class="hidden">
                     <div class="flex items-center gap-3 text-sm text-neutral-600 dark:text-neutral-400">
@@ -394,6 +427,7 @@
 {% endblock %}
 
 {% block extra_js %}
+<script src="/static/js/provider-icons.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <script>
     document.addEventListener('DOMContentLoaded', function() {
@@ -405,6 +439,79 @@
         const resultContainer = document.getElementById('result-container');
         const resultLoading = document.getElementById('result-loading');
         const statsContainer = document.getElementById('stats-container');
+
+        // ── Custom model dropdown ──────────────────────────────────────────
+        // getProviderIcon() and resolveIconSrc() are provided by /static/js/provider-icons.js
+
+        const modelTrigger        = document.getElementById('model-trigger');
+        const modelTriggerIcon    = document.getElementById('model-trigger-icon');
+        const modelTriggerLabel   = document.getElementById('model-trigger-label');
+        const modelTriggerChevron = document.getElementById('model-trigger-chevron');
+        const modelDropdownPanel  = document.getElementById('model-dropdown-panel');
+        const modelOptions        = document.querySelectorAll('.model-option');
+
+        function setTriggerState(modelName) {
+            modelTriggerLabel.textContent = modelName || 'Select a model';
+            modelTriggerLabel.classList.toggle('text-neutral-500', !modelName);
+            modelTriggerLabel.classList.toggle('dark:text-neutral-400', !modelName);
+            const src = modelName ? resolveIconSrc(modelName) : null;
+            if (src) {
+                modelTriggerIcon.src = src;
+                modelTriggerIcon.classList.remove('hidden');
+            } else {
+                modelTriggerIcon.classList.add('hidden');
+            }
+        }
+
+        function refreshOptionIcons() {
+            modelOptions.forEach(opt => {
+                const iconEl = opt.querySelector('.model-option-icon');
+                const src = resolveIconSrc(opt.dataset.value);
+                if (src) { iconEl.src = src; iconEl.classList.remove('hidden'); }
+                else { iconEl.classList.add('hidden'); }
+            });
+        }
+
+        function openDropdown() {
+            modelDropdownPanel.classList.remove('hidden');
+            modelTriggerChevron.style.transform = 'rotate(180deg)';
+        }
+
+        function closeDropdown() {
+            modelDropdownPanel.classList.add('hidden');
+            modelTriggerChevron.style.transform = '';
+        }
+
+        modelTrigger.addEventListener('click', () => {
+            modelDropdownPanel.classList.contains('hidden') ? openDropdown() : closeDropdown();
+        });
+
+        document.addEventListener('click', e => {
+            if (!document.getElementById('model-dropdown-wrapper').contains(e.target)) closeDropdown();
+        });
+
+        document.addEventListener('keydown', e => { if (e.key === 'Escape') closeDropdown(); });
+
+        modelOptions.forEach(opt => {
+            opt.addEventListener('click', () => {
+                const val = opt.dataset.value;
+                modelSelect.value = val;
+                modelOptions.forEach(o => o.querySelector('.model-option-check').classList.add('hidden'));
+                opt.querySelector('.model-option-check').classList.remove('hidden');
+                setTriggerState(val);
+                closeDropdown();
+                modelSelect.dispatchEvent(new Event('change'));
+            });
+        });
+
+        new MutationObserver(() => {
+            refreshOptionIcons();
+            if (modelSelect.value) setTriggerState(modelSelect.value);
+        }).observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+
+        refreshOptionIcons();
+        if (modelSelect.value) setTriggerState(modelSelect.value);
+        // ── End custom dropdown ────────────────────────────────────────────
 
         // Parameter tuning elements
         const presetSelect = document.getElementById('preset-select');
@@ -720,6 +827,7 @@
             // Show loading indicator
             resultContainer.classList.add('hidden');
             statsContainer.classList.add('hidden');
+            document.getElementById('output-placeholder').classList.add('hidden');
             resultLoading.classList.remove('hidden');
 
             isGenerating = true;

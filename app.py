@@ -550,6 +550,8 @@ def generate():
 @app.route('/api/generate', methods=['POST'])
 def api_generate():
     data = request.get_json()
+    if not data:
+        return jsonify({"error": "Invalid or missing JSON request body"}), 400
     model = data.get('model')
     prompt = data.get('prompt')
     system = data.get('system', '')
@@ -601,7 +603,11 @@ def api_generate():
             result = response.json()
             return jsonify(result)
         else:
-            return jsonify({"error": f"Error from Ollama API: {response.status_code}"}), 500
+            try:
+                ollama_error = response.json().get("error", response.text)
+            except Exception:
+                ollama_error = response.text
+            return jsonify({"error": f"Ollama error ({response.status_code}): {ollama_error}"}), 500
     except Exception as e:
         return jsonify({"error": f"Error connecting to Ollama API: {str(e)}"}), 500
 
