@@ -1,0 +1,402 @@
+{% extends "base.html" %}
+{% block title %}WebOllama - Terminal{% endblock %}
+
+{% block extra_css %}
+<!-- xterm.js CSS -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/css/xterm.min.css">
+<style>
+    #terminal-container {
+        padding: 0;
+        height: 100%;
+        overflow: hidden;
+    }
+    #terminal {
+        padding: 8px;
+        height: 100%;
+    }
+    .terminal-bar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0.5rem 1rem;
+        border-bottom: 1px solid rgb(229, 231, 235);
+        background: rgb(249, 250, 251);
+    }
+    html.dark .terminal-bar {
+        border-bottom-color: rgb(38, 38, 38);
+        background: rgb(17, 17, 17);
+    }
+    .terminal-status {
+        font-size: 0.75rem;
+        font-family: monospace;
+    }
+    .terminal-status.connected {
+        color: rgb(22, 163, 74);
+    }
+    .terminal-status.disconnected {
+        color: rgb(220, 38, 38);
+    }
+    .terminal-status.connecting {
+        color: rgb(202, 138, 4);
+    }
+    .terminal-actions {
+        display: flex;
+        gap: 0.5rem;
+    }
+    .terminal-btn {
+        padding: 0.25rem 0.75rem;
+        border-radius: 0.375rem;
+        font-size: 0.75rem;
+        border: 1px solid rgb(229, 231, 235);
+        background: transparent;
+        cursor: pointer;
+        transition: all 0.2s;
+        color: inherit;
+    }
+    .terminal-btn:hover {
+        background: rgba(0, 0, 0, 0.05);
+    }
+    html.dark .terminal-btn {
+        border-color: rgb(55, 65, 81);
+    }
+    html.dark .terminal-btn:hover {
+        background: rgba(255, 255, 255, 0.05);
+    }
+    /* xterm.js dark theme overrides for our layout */
+    .xterm {
+        height: 100%;
+    }
+    .xterm-viewport {
+        overflow-y: auto !important;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="flex flex-col h-full">
+    <!-- Terminal toolbar -->
+    <div class="terminal-bar">
+        <div class="flex items-center gap-3">
+            <i class="fas fa-terminal text-sm opacity-75"></i>
+            <span class="text-sm font-medium">Bash Terminal</span>
+            <span class="terminal-status connecting" id="term-status">Connecting…</span>
+        </div>
+        <div class="terminal-actions">
+            <button class="terminal-btn" id="btn-clear" title="Clear terminal">
+                <i class="fas fa-eraser"></i> Clear
+            </button>
+            <button class="terminal-btn" id="btn-reconnect" title="Reconnect terminal">
+                <i class="fas fa-redo"></i> Reconnect
+            </button>
+        </div>
+    </div>
+
+    <!-- Terminal container -->
+    <div id="terminal-container" class="flex-1 min-h-0 bg-black">
+        <div id="terminal"></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- xterm.js core + addons -->
+<script src="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/lib/xterm.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@xterm/addon-fit@0.10.0/lib/addon-fit.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@xterm/addon-web-links@0.11.0/lib/addon-web-links.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@xterm/addon-search@0.15.0/lib/addon-search.min.js"></script>
+
+<script>
+(function () {
+    // Auth token (empty if no auth is configured on the server)
+    const authToken = '';
+
+    const term = new Terminal({
+        cursorBlink: true,
+        fontSize: 14,
+        fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
+        theme: {
+            background: '#000000',
+            foreground: '#e8e8e8',
+            cursor: '#ffffff',
+            selectionBackground: 'rgba(255, 255, 255, 0.3)',
+        },
+        allowProposedApi: true,
+    });
+
+    const fitAddon = new FitAddon.FitAddon();
+    const webLinksAddon = new WebLinksAddon.WebLinksAddon();
+    const searchAddon = new SearchAddon.SearchAddon();
+
+    term.loadAddon(fitAddon);
+    term.loadAddon(webLinksAddon);
+    term.loadAddon(searchAddon);
+
+    const container = document.getElementById('terminal');
+    const statusEl = document.getElementById('term-status');
+    const btnClear = document.getElementById('btn-clear');
+    const btnReconnect = document.getElementById('btn-reconnect');
+
+    term.open(container);
+    fitAddon.fit();
+
+    let ws = null;
+    let resizeTimeout = null;
+    let pingInterval = null;
+    let shouldReconnect = false;
+    let sessionId = null;  // Server-assigned session ID for reconnection
+
+    function setStatus(text, cls) {
+        statusEl.textContent = text;
+        statusEl.className = 'terminal-status ' + cls;
+    }
+
+    function getWsUrl() {
+        const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+        return proto + '//' + location.host + '/ws/terminal';
+    }
+
+    // --- Copy / Paste via Ctrl+C / Ctrl+V (and Cmd+C / Cmd+V on Mac) ---
+    // xterm.js doesn't handle copy/paste by default because Ctrl+C is SIGINT
+    // and Ctrl+V is used by some shells. We intercept these combos and route
+    // them to the browser clipboard API instead [1][3][6].
+    //
+    // Behaviour:
+    //   Ctrl+Shift+C / Cmd+C  → Copy selection to clipboard
+    //   Ctrl+Shift+V / Cmd+V  → Paste from clipboard to terminal
+    //   Ctrl+C (no shift)      → If text is selected, copy it; otherwise send SIGINT
+    //   Ctrl+V (no shift)      → Paste from clipboard to terminal
+    //   Right-click            → Paste from clipboard (context menu disabled)
+    //
+    term.attachCustomKeyEventHandler(function (e) {
+        // Only handle keydown events
+        if (e.type !== 'keydown') return true;
+
+        const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+        const ctrlOrCmd = isMac ? e.metaKey : e.ctrlKey;
+
+        // Ctrl+C / Cmd+C — copy (if there's a selection) or let SIGINT through
+        if (ctrlOrCmd && e.key === 'c') {
+            const selectedText = term.getSelection();
+            if (selectedText) {
+                // Copy selection to clipboard
+                navigator.clipboard.writeText(selectedText).then(function () {
+                    term.clearSelection();
+                }).catch(function () {
+                    // Fallback: use a temporary textarea
+                    const ta = document.createElement('textarea');
+                    ta.value = selectedText;
+                    document.body.appendChild(ta);
+                    ta.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(ta);
+                    term.clearSelection();
+                });
+                return false;  // Prevent xterm from processing (no SIGINT)
+            }
+            // No selection — let Ctrl+C through as SIGINT
+            return true;
+        }
+
+        // Ctrl+Shift+C — always copy (even if no selection, clears clipboard)
+        if (ctrlOrCmd && e.shiftKey && e.key === 'C') {
+            const selectedText = term.getSelection();
+            if (selectedText) {
+                navigator.clipboard.writeText(selectedText).then(function () {
+                    term.clearSelection();
+                }).catch(function () {});
+            }
+            return false;
+        }
+
+        // Ctrl+V / Cmd+V — paste from clipboard
+        if (ctrlOrCmd && e.key === 'v') {
+            navigator.clipboard.readText().then(function (text) {
+                if (text && ws && ws.readyState === WebSocket.OPEN) {
+                    ws.send(JSON.stringify({ type: 'input', data: text }));
+                }
+            }).catch(function () {
+                // Clipboard read failed (e.g. not allowed by browser)
+                // Fall back to execCommand paste via a temporary element
+                const ta = document.createElement('textarea');
+                ta.style.position = 'fixed';
+                ta.style.opacity = '0';
+                document.body.appendChild(ta);
+                ta.focus();
+                document.execCommand('paste');
+                setTimeout(function () {
+                    const text = ta.value;
+                    if (text && ws && ws.readyState === WebSocket.OPEN) {
+                        ws.send(JSON.stringify({ type: 'input', data: text }));
+                    }
+                    document.body.removeChild(ta);
+                }, 10);
+            });
+            return false;  // Prevent xterm from processing
+        }
+
+        // Ctrl+Shift+V — paste (same as Ctrl+V, for Linux users)
+        if (ctrlOrCmd && e.shiftKey && e.key === 'V') {
+            navigator.clipboard.readText().then(function (text) {
+                if (text && ws && ws.readyState === WebSocket.OPEN) {
+                    ws.send(JSON.stringify({ type: 'input', data: text }));
+                }
+            }).catch(function () {});
+            return false;
+        }
+
+        // Let all other keys pass through to the terminal
+        return true;
+    });
+
+    // Right-click paste (disable context menu and paste instead)
+    container.addEventListener('contextmenu', function (e) {
+        e.preventDefault();
+        navigator.clipboard.readText().then(function (text) {
+            if (text && ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ type: 'input', data: text }));
+            }
+        }).catch(function () {});
+    });
+
+    // --- xterm.js event handlers (registered ONCE, not per-connection) ---
+    term.onData(function (data) {
+        if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ type: 'input', data: data }));
+        }
+    });
+
+    term.onResize(function (dims) {
+        if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ type: 'resize', cols: dims.cols, rows: dims.rows }));
+        }
+    });
+
+    function sendResize() {
+        if (ws && ws.readyState === WebSocket.OPEN) {
+            const dims = fitAddon.proposeDimensions();
+            if (dims) {
+                ws.send(JSON.stringify({ type: 'resize', cols: dims.cols, rows: dims.rows }));
+            }
+        }
+    }
+
+    function connect() {
+        shouldReconnect = true;
+        setStatus('Connecting…', 'connecting');
+        ws = new WebSocket(getWsUrl());
+
+        ws.onopen = function () {
+            setStatus('Connected', 'connected');
+
+            // If auth token is configured, send it first
+            if (authToken) {
+                ws.send(JSON.stringify({ type: 'auth', token: authToken }));
+            }
+
+            // If we have an existing session, try to reconnect to it
+            if (sessionId) {
+                ws.send(JSON.stringify({ type: 'reconnect', session: sessionId }));
+            }
+
+            // Send initial terminal size
+            sendResize();
+            term.focus();
+
+            // Send periodic ping to keep connection alive
+            if (pingInterval) clearInterval(pingInterval);
+            pingInterval = setInterval(function () {
+                if (ws && ws.readyState === WebSocket.OPEN) {
+                    ws.send(JSON.stringify({ type: 'ping' }));
+                }
+            }, 25000);
+        };
+
+        ws.onmessage = function (event) {
+            // Try to parse as JSON control message first
+            try {
+                const msg = JSON.parse(event.data);
+                if (msg.type === 'session') {
+                    // Server assigned us a session ID
+                    sessionId = msg.id;
+                    return;
+                } else if (msg.type === 'error') {
+                    setStatus('Error: ' + msg.message, 'disconnected');
+                    return;
+                }
+            } catch (e) {
+                // Not JSON — it's raw PTY output, write to terminal
+                term.write(event.data);
+            }
+        };
+
+        ws.onerror = function () {
+            setStatus('Error', 'disconnected');
+        };
+
+        ws.onclose = function () {
+            setStatus('Disconnected', 'disconnected');
+            if (pingInterval) {
+                clearInterval(pingInterval);
+                pingInterval = null;
+            }
+            // Auto-reconnect after 2 seconds
+            if (shouldReconnect) {
+                setTimeout(function () {
+                    if (shouldReconnect) {
+                        connect();
+                    }
+                }, 2000);
+            }
+        };
+    }
+
+    // Handle window/container resize
+    const ro = new ResizeObserver(function () {
+        if (resizeTimeout) clearTimeout(resizeTimeout);
+        resizeTimeout = setTimeout(function () {
+            fitAddon.fit();
+        }, 100);
+    });
+    ro.observe(container);
+
+    // Also handle window resize
+    window.addEventListener('resize', function () {
+        if (resizeTimeout) clearTimeout(resizeTimeout);
+        resizeTimeout = setTimeout(function () {
+            fitAddon.fit();
+        }, 100);
+    });
+
+    // Clear button
+    btnClear.addEventListener('click', function () {
+        term.clear();
+        term.focus();
+    });
+
+    // Reconnect button
+    btnReconnect.addEventListener('click', function () {
+        shouldReconnect = false;
+        if (ws) {
+            ws.close();
+        }
+        if (pingInterval) {
+            clearInterval(pingInterval);
+            pingInterval = null;
+        }
+        term.reset();
+        // Keep sessionId so we reconnect to the same shell
+        connect();
+    });
+
+    // Clean up on page unload
+    window.addEventListener('beforeunload', function () {
+        shouldReconnect = false;
+        if (pingInterval) clearInterval(pingInterval);
+        if (ws) ws.close();
+    });
+
+    // Initial connection
+    connect();
+})();
+</script>
+{% endblock %}

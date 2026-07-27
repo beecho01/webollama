@@ -1,9 +1,18 @@
 from flask import Flask, render_template, request, jsonify, redirect, url_for, flash, Response, send_from_directory
+from flask_sock import Sock, ConnectionClosed
 import requests
 import json
 import os
 import threading
 import uuid
+import pty
+import select
+import struct
+import fcntl
+import termios
+import signal
+import subprocess
+import time
 from datetime import datetime
 from dotenv import load_dotenv
 import base64
@@ -15,6 +24,10 @@ load_dotenv()
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-key-change-in-production')
 csrf = CSRFProtect(app)
+sock = Sock(app)
+
+# Exempt WebSocket routes from CSRF (they use their own protocol)
+csrf.exempt('terminal_websocket')
 
 # Ollama API base URL
 OLLAMA_API_BASE = os.getenv('OLLAMA_API_BASE', 'http://127.0.0.1:11434')
@@ -42,6 +55,25 @@ def _pull_worker(job_id, model_name):
             stream=True,
             timeout=3600
         ) as r:
+            # Check for non-200 HTTP status (Ollama may return 404 for missing models)
+            if r.status_code != 200:
+                error_msg = f"Ollama API returned HTTP {r.status_code}"
+                try:
+                    err_data = r.json()
+                    if err_data.get('error'):
+                        error_msg = err_data['error']
+                except (ValueError, json.JSONDecodeError):
+                    # Response body might be plain text
+                    body = r.text.strip()
+                    if body:
+                        error_msg = body
+                with _pull_jobs_lock:
+                    j = _pull_jobs.get(job_id)
+                    if j:
+                        j['done'] = True
+                        j['error'] = error_msg
+                return
+
             for line in r.iter_lines():
                 with _pull_jobs_lock:
                     if _pull_jobs.get(job_id, {}).get('cancelled'):
@@ -56,6 +88,11 @@ def _pull_worker(job_id, model_name):
                     j = _pull_jobs.get(job_id)
                     if j is None:
                         break
+                    # Check for error in the streaming JSON response
+                    if data.get('error'):
+                        j['done'] = True
+                        j['error'] = data['error']
+                        break
                     if data.get('status'):
                         j['status'] = data['status']
                     if data.get('digest') and data.get('total'):
@@ -64,6 +101,18 @@ def _pull_worker(job_id, model_name):
                     if data.get('status') == 'success':
                         j['done'] = True
                         j['success'] = True
+    except requests.exceptions.ConnectionError:
+        with _pull_jobs_lock:
+            j = _pull_jobs.get(job_id)
+            if j:
+                j['done'] = True
+                j['error'] = 'Cannot connect to Ollama API — is the Ollama server running?'
+    except requests.exceptions.Timeout:
+        with _pull_jobs_lock:
+            j = _pull_jobs.get(job_id)
+            if j:
+                j['done'] = True
+                j['error'] = 'Pull request timed out (3600s)'
     except Exception as e:
         with _pull_jobs_lock:
             j = _pull_jobs.get(job_id)
@@ -176,7 +225,12 @@ def update_model(model_name):
         if response.status_code == 200:
             flash(f"Model {model_name} updated successfully", "success")
         else:
-            flash(f"Error updating model: {response.status_code}", "danger")
+            try:
+                err_data = response.json()
+                error_msg = err_data.get('error', f'HTTP {response.status_code}')
+            except (ValueError, json.JSONDecodeError):
+                error_msg = response.text.strip() or f'HTTP {response.status_code}'
+            flash(f"Error updating model: {error_msg}", "danger")
     except Exception as e:
         flash(f"Error connecting to Ollama API: {str(e)}", "danger")
     return redirect(url_for('models'))
@@ -190,7 +244,13 @@ def pull_model():
             if response.status_code == 200:
                 flash(f"Model {model_name} pulled successfully", "success")
             else:
-                flash(f"Error pulling model: {response.status_code}", "danger")
+                # Try to extract error message from Ollama API response
+                try:
+                    err_data = response.json()
+                    error_msg = err_data.get('error', f'HTTP {response.status_code}')
+                except (ValueError, json.JSONDecodeError):
+                    error_msg = response.text.strip() or f'HTTP {response.status_code}'
+                flash(f"Error pulling model: {error_msg}", "danger")
             return redirect(url_for('models'))
         except Exception as e:
             flash(f"Error connecting to Ollama API: {str(e)}", "danger")
@@ -777,5 +837,316 @@ def check_updates():
     except Exception as e:
         return jsonify({"error": f"Unexpected error: {str(e)}"}), 500
 
+# ==========================================================
+# Terminal — xterm.js + PTY over WebSocket
+# Supports two modes:
+#   1. "local"  — spawn a shell directly (os.fork + pty.openpty)
+#   2. "docker" — docker exec into another container (requires Docker socket)
+#
+# Configuration via environment variables:
+#   WEBOLLAMA_TERMINAL_MODE          — "local" (default) or "docker"
+#   WEBOLLAMA_TERMINAL_SHELL         — shell path for local mode (default: /bin/bash)
+#   WEBOLLAMA_TERMINAL_PROMPT        — PS1 prompt (default: \u@webollama:\w$ )
+#   WEBOLLAMA_TERMINAL_AUTH          — if set, client must send matching token
+#   WEBOLLAMA_TERMINAL_DOCKER_CONTAINER — container name for docker exec mode
+#   WEBOLLAMA_TERMINAL_DOCKER_SHELL  — shell inside the target container (default: /bin/bash)
+#   OLLAMA_HOST                      — passed through to the shell environment
+# ==========================================================
+
+# Terminal config from env
+TERM_MODE = os.getenv('WEBOLLAMA_TERMINAL_MODE', 'local')
+TERM_SHELL = os.getenv('WEBOLLAMA_TERMINAL_SHELL', '/bin/bash')
+TERM_PROMPT = os.getenv('WEBOLLAMA_TERMINAL_PROMPT', '\\u@webollama:\\w$ ')
+TERM_AUTH = os.getenv('WEBOLLAMA_TERMINAL_AUTH', '')
+TERM_DOCKER_CONTAINER = os.getenv('WEBOLLAMA_TERMINAL_DOCKER_CONTAINER', '')
+TERM_DOCKER_SHELL = os.getenv('WEBOLLAMA_TERMINAL_DOCKER_SHELL', '/bin/bash')
+
+# Session store for reconnection (session_id → {pid, master_fd, last_seen})
+_terminal_sessions = {}
+_terminal_sessions_lock = threading.Lock()
+
+# Stale session cleanup interval (seconds)
+_SESSION_TIMEOUT = 300  # 5 minutes of inactivity
+
+
+def _cleanup_stale_sessions():
+    """Remove sessions that have been inactive for too long."""
+    now = time.time()
+    with _terminal_sessions_lock:
+        stale = [sid for sid, s in _terminal_sessions.items()
+                 if now - s['last_seen'] > _SESSION_TIMEOUT]
+        for sid in stale:
+            s = _terminal_sessions.pop(sid)
+            try:
+                os.close(s['master_fd'])
+            except OSError:
+                pass
+            try:
+                os.kill(s['pid'], signal.SIGTERM)
+                os.waitpid(s['pid'], 0)
+            except (OSError, ChildProcessError):
+                pass
+
+
+@app.route('/terminal')
+def terminal_page():
+    return render_template('terminal.html')
+
+
+def _spawn_local_pty(shell_cmd, prompt, env_vars):
+    """Spawn a local PTY running the given shell. Returns (pid, master_fd)."""
+    master_fd, slave_fd = pty.openpty()
+
+    # Set initial window size on the slave
+    try:
+        fcntl.ioctl(slave_fd, termios.TIOCSWINSZ, struct.pack('HHHH', 24, 80, 0, 0))
+    except OSError:
+        pass
+
+    pid = os.fork()
+
+    if pid == 0:
+        # --- Child process ---
+        os.close(master_fd)
+        os.setsid()
+
+        os.dup2(slave_fd, 0)
+        os.dup2(slave_fd, 1)
+        os.dup2(slave_fd, 2)
+        if slave_fd > 2:
+            os.close(slave_fd)
+
+        # Acquire controlling terminal
+        try:
+            fcntl.ioctl(0, termios.TIOCSCTTY, 0)
+        except OSError:
+            pass
+
+        # Set environment
+        os.environ['TERM'] = 'xterm-256color'
+        if prompt:
+            os.environ['PS1'] = prompt
+        for k, v in env_vars.items():
+            os.environ[k] = v
+
+        os.execvp(shell_cmd, [shell_cmd, '-l'])
+        os._exit(1)
+
+    # --- Parent process ---
+    os.close(slave_fd)
+    return pid, master_fd
+
+
+def _spawn_docker_exec_pty(container, shell_cmd, env_vars):
+    """Spawn a PTY running `docker exec -it <container> <shell>`.
+
+    Requires Docker socket to be mounted at /var/run/docker.sock.
+    Returns (pid, master_fd).
+    """
+    master_fd, slave_fd = pty.openpty()
+
+    # Set initial window size
+    try:
+        fcntl.ioctl(slave_fd, termios.TIOCSWINSZ, struct.pack('HHHH', 24, 80, 0, 0))
+    except OSError:
+        pass
+
+    # Build the docker exec command with env vars as -e flags
+    cmd = ['docker', 'exec', '-it']
+    for k, v in env_vars.items():
+        cmd.extend(['-e', f'{k}={v}'])
+    cmd.extend([container, shell_cmd])
+
+    pid = os.fork()
+
+    if pid == 0:
+        # --- Child process ---
+        os.close(master_fd)
+        os.setsid()
+
+        os.dup2(slave_fd, 0)
+        os.dup2(slave_fd, 1)
+        os.dup2(slave_fd, 2)
+        if slave_fd > 2:
+            os.close(slave_fd)
+
+        try:
+            fcntl.ioctl(0, termios.TIOCSCTTY, 0)
+        except OSError:
+            pass
+
+        os.execvp(cmd[0], cmd)
+        os._exit(1)
+
+    # --- Parent process ---
+    os.close(slave_fd)
+    return pid, master_fd
+
+
+@sock.route('/ws/terminal')
+def terminal_websocket(ws):
+    """Spawn a PTY and bridge it to the xterm.js WebSocket.
+
+    Protocol (JSON messages from browser):
+        {"type": "input",    "data": "<keystrokes>"}
+        {"type": "resize",   "cols": 80, "rows": 24}
+        {"type": "ping"}
+        {"type": "auth",     "token": "<auth_token>"}
+        {"type": "reconnect", "session": "<session_id>"}
+
+    Messages to browser (text):
+        raw bytes from the PTY (written directly to xterm.js)
+        or JSON: {"type": "session", "id": "<session_id>"}
+                 {"type": "error", "message": "..."}
+    """
+    # --- Auth check ---
+    if TERM_AUTH:
+        try:
+            first_msg = ws.receive(timeout=10)
+            if first_msg:
+                msg = json.loads(first_msg)
+                if msg.get('type') == 'auth' and msg.get('token') == TERM_AUTH:
+                    pass  # Auth OK
+                else:
+                    ws.send(json.dumps({"type": "error", "message": "Authentication failed"}))
+                    return
+            else:
+                ws.send(json.dumps({"type": "error", "message": "Auth timeout"}))
+                return
+        except (json.JSONDecodeError, ConnectionClosed, Exception):
+            ws.send(json.dumps({"type": "error", "message": "Auth error"}))
+            return
+
+    # --- Reconnect to existing session? ---
+    session_id = None
+    pid = None
+    master_fd = None
+
+    # Check for reconnect message (if no auth was required, this is the first message)
+    try:
+        reconnect_msg = ws.receive(timeout=2) if not TERM_AUTH else None
+        if reconnect_msg:
+            msg = json.loads(reconnect_msg)
+            if msg.get('type') == 'reconnect' and msg.get('session'):
+                sid = msg['session']
+                with _terminal_sessions_lock:
+                    session = _terminal_sessions.get(sid)
+                    if session:
+                        pid = session['pid']
+                        master_fd = session['master_fd']
+                        session_id = sid
+                        session['last_seen'] = time.time()
+    except (json.JSONDecodeError, ConnectionClosed, Exception):
+        pass
+
+    # --- Spawn new session if not reconnected ---
+    if pid is None:
+        # Clean up stale sessions periodically
+        _cleanup_stale_sessions()
+
+        # Prepare environment variables to pass to the shell
+        env_vars = {}
+        ollama_host = os.getenv('OLLAMA_HOST', 'http://ollama:11434')
+        if ollama_host:
+            env_vars['OLLAMA_HOST'] = ollama_host
+        if TERM_PROMPT:
+            env_vars['PS1'] = TERM_PROMPT
+
+        if TERM_MODE == 'docker':
+            if not TERM_DOCKER_CONTAINER:
+                ws.send(json.dumps({"type": "error", "message": "Docker mode requires WEBOLLAMA_TERMINAL_DOCKER_CONTAINER"}))
+                return
+            pid, master_fd = _spawn_docker_exec_pty(TERM_DOCKER_CONTAINER, TERM_DOCKER_SHELL, env_vars)
+        else:
+            shell_cmd = TERM_SHELL if os.path.exists(TERM_SHELL) else '/bin/sh'
+            pid, master_fd = _spawn_local_pty(shell_cmd, TERM_PROMPT, env_vars)
+
+        # Create session
+        session_id = str(uuid.uuid4())
+        with _terminal_sessions_lock:
+            _terminal_sessions[session_id] = {
+                'pid': pid,
+                'master_fd': master_fd,
+                'last_seen': time.time(),
+            }
+
+        # Send session ID to client
+        ws.send(json.dumps({"type": "session", "id": session_id}))
+
+    # --- Main I/O loop ---
+    try:
+        while True:
+            # Update last-seen for session
+            if session_id:
+                with _terminal_sessions_lock:
+                    s = _terminal_sessions.get(session_id)
+                    if s:
+                        s['last_seen'] = time.time()
+
+            # Read from WebSocket
+            try:
+                message = ws.receive(timeout=0.05)
+            except ConnectionClosed:
+                break
+            except Exception:
+                message = None
+
+            if message:
+                try:
+                    msg = json.loads(message)
+                    mtype = msg.get('type')
+
+                    if mtype == 'input':
+                        os.write(master_fd, msg['data'].encode('utf-8'))
+                    elif mtype == 'resize':
+                        cols = msg.get('cols', 80)
+                        rows = msg.get('rows', 24)
+                        fcntl.ioctl(master_fd, termios.TIOCSWINSZ,
+                                    struct.pack('HHHH', rows, cols, 0, 0))
+                    elif mtype == 'ping':
+                        pass  # Keep-alive, ignore
+                except (json.JSONDecodeError, KeyError, OSError):
+                    pass
+
+            # Read from PTY
+            readable, _, _ = select.select([master_fd], [], [], 0.05)
+            if readable:
+                try:
+                    data = os.read(master_fd, 65536)
+                    if data:
+                        ws.send(data.decode('utf-8', errors='replace'))
+                    else:
+                        break
+                except OSError:
+                    break
+
+            # Check if child exited
+            try:
+                wait_pid, status = os.waitpid(pid, os.WNOHANG)
+                if wait_pid != 0:
+                    break
+            except ChildProcessError:
+                break
+
+    finally:
+        # On disconnect: keep session alive for reconnection (don't kill process)
+        # Only clean up if the child has actually exited
+        try:
+            wait_pid, status = os.waitpid(pid, os.WNOHANG)
+            if wait_pid != 0:
+                # Child exited — remove session
+                with _terminal_sessions_lock:
+                    _terminal_sessions.pop(session_id, None)
+                os.close(master_fd)
+            # else: child still running, keep session for reconnection
+        except (OSError, ChildProcessError):
+            with _terminal_sessions_lock:
+                _terminal_sessions.pop(session_id, None)
+            try:
+                os.close(master_fd)
+            except OSError:
+                pass
+
+
 if __name__ == '__main__':
-    app.run(host=HOST, port=PORT, debug=True)
+    app.run(host=HOST, port=PORT, debug=True, use_reloader=False)

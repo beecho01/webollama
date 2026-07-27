@@ -1,20 +1,38 @@
 services:
   webollama:
+#    image: ghcr.io/dkruyt/webollama:latest
+    image: webollama-dev:latest
     build:
       context: .
       dockerfile: Dockerfile
-    image: webollama:latest
+      args:
+        # Set to false to skip installing Ollama CLI (smaller image, ~200MB saved)
+        INSTALL_OLLAMA_CLI: ${INSTALL_OLLAMA_CLI:-true}
     container_name: webollama
     ports:
-      - "${PORT:-5000}:5000"
+      - ${PORT}:5000
     environment:
-      HOST: ${HOST:-0.0.0.0}
-      SECRET_KEY: ${SECRET_KEY:-supersecretkey}
-      OLLAMA_API_BASE: ${OLLAMA_API_BASE:-http://host.docker.internal:11434}
+      HOST: ${HOST}
+      SECRET_KEY: ${SECRET_KEY}
+      OLLAMA_API_BASE: ${OLLAMA_API_BASE}
+      OLLAMA_HOST: ${OLLAMA_API_BASE}
+      # Terminal configuration
+      WEBOLLAMA_TERMINAL_MODE: ${WEBOLLAMA_TERMINAL_MODE:-local}
+      WEBOLLAMA_TERMINAL_SHELL: ${WEBOLLAMA_TERMINAL_SHELL:-/bin/bash}
+      WEBOLLAMA_TERMINAL_PROMPT: ${WEBOLLAMA_TERMINAL_PROMPT:-\u@webollama:\w$ }
+      WEBOLLAMA_TERMINAL_AUTH: ${WEBOLLAMA_TERMINAL_AUTH:-}
+      WEBOLLAMA_TERMINAL_DOCKER_CONTAINER: ${WEBOLLAMA_TERMINAL_DOCKER_CONTAINER:-}
+      WEBOLLAMA_TERMINAL_DOCKER_SHELL: ${WEBOLLAMA_TERMINAL_DOCKER_SHELL:-/bin/bash}
+    # Mount Docker socket — only needed for WEBOLLAMA_TERMINAL_MODE=docker
+    # Uncomment to enable docker exec mode
+    # volumes:
+    #   - /var/run/docker.sock:/var/run/docker.sock
     restart: unless-stopped
     networks:
       - webollama-network
-
+      - open-webui_net
 networks:
   webollama-network:
     name: webollama-network
+  open-webui_net:
+    external: true

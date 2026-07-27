@@ -199,11 +199,18 @@
             const data = await res.json();
 
             if (data.cancelled) {
+                showResult(false, 'Download stopped.');
                 setIdle();
                 return;
             }
             if (data.error) {
                 showResult(false, 'Error: ' + data.error);
+                setIdle();
+                return;
+            }
+            if (data.done && !data.success && !data.error) {
+                // Done but no success and no explicit error — treat as failure
+                showResult(false, 'Pull failed or was interrupted.');
                 setIdle();
                 return;
             }
