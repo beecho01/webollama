@@ -248,6 +248,14 @@
         return true;
     });
 
+    // Suppress xterm.js's built-in paste handler — we handle paste ourselves
+    // via attachCustomKeyEventHandler above. Without this, Ctrl+V double-pastes
+    // because both our handler AND xterm's paste event fire.
+    container.addEventListener('paste', function (e) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+    }, true);
+
     // Right-click paste (disable context menu and paste instead)
     container.addEventListener('contextmenu', function (e) {
         e.preventDefault();
